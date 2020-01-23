@@ -12,16 +12,20 @@ def main():
     port = args.port
     my_id = args.id
     with_ssl = args.ssl
+
     # other args
     my_class = 'cs3700spring2020'
     msg_length = 8192 # in bytes
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     # SSL enabled?
     if with_ssl:
         port = 27994
         sock = ssl.SSLSocket(sock)
+
     # connect to socket
     sock.connect((host, port))
+
     # send initial message
     message = f'{my_class} HELLO {my_id}\n'.encode()
     sock.sendall(message)
@@ -54,6 +58,7 @@ def main():
 def read_message(socket, length):
     resp = socket.recv(length)
     msg = resp.decode()
+
     # keep getting msg content until new line delim found
     while not msg.endswith('\n'):
         resp = socket.recv(length)
@@ -69,6 +74,7 @@ def get_args():
     parser.add_argument('hostname', action='store')
     parser.add_argument('id', action='store')
     p = parser.parse_args()
+
     Args = namedtuple('Args', 'port ssl hostname id')
     my_args = Args(p.p, p.s, p.hostname, p.id)
 
