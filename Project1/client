@@ -20,10 +20,11 @@ def main():
 
     # SSL enabled?
     if with_ssl:
-        port = 27994
+        port = port if port != 27993 else 27994
         sock = ssl.SSLSocket(sock)
 
     # connect to socket
+    sock.settimeout(10)
     sock.connect((host, port))
 
     # send initial message
