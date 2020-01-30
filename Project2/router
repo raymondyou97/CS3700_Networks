@@ -39,17 +39,17 @@ PROV = "prov"
 ##########################################################################################
 
 class Message:
-    def __init__(self, typee, src, dst, msg):
-        self.typee = typee
+    def __init__(self, src, dst, typee, msg):
         self.src = src
         self.dst = dst
+        self.typee = typee
         self.msg = msg
 
     def to_json(self):
         my_dict = {
-            TYPE: self.typee,
             SRCE: self.src,
             DEST: self.dst,
+            TYPE: self.typee,
             MESG: self.msg
         }
 
@@ -59,7 +59,7 @@ class Router:
   """ Your Router """
   def __init__(self, asn, networks):
     self.routes = {}
-    self.announcements = []
+    self.updates = []
     self.relations = {}
     self.sockets = {}
     self.asn = asn
@@ -138,11 +138,11 @@ class Router:
 
   def update(self, srcif, packet):
     """ handle update packets """
-    # 1: save a copy of announcement
-    self.announcements.append(copy.deepcopy(packet))
+    # 1: save a copy of announcement (List of packets)
+    self.updates.append(packet)
 
-    # 2: add entry to forwarding table
-    self.routes[packet[SRCE]] = packet[MESG][NTWK]
+    # 2: add entry to forwarding table. Map with (srcif) -> (msg content)
+    self.routes[srcif] = copy.deepcopy(packet[MESG])
 
     # 3: maybe send copies of announcement to neighbors
     for network, socket in self.sockets.items():
@@ -155,7 +155,7 @@ class Router:
         if self.relations.get(packet[SRCE]) == CUST:
             msg_body = copy.deepcopy(packet[MESG])
             msg_body[APTH] = [self.asn]
-            msg = Message(packet[TYPE], packet[DEST], network, msg_body)
+            msg = Message(packet[DEST], network, packet[TYPE], msg_body)
             socket.sendall(msg.to_json())
 
     return True
