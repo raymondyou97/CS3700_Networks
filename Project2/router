@@ -38,13 +38,31 @@ PROV = "prov"
 
 ##########################################################################################
 
+class Message:
+    def __init__(self, src, dst, typee, msg):
+        self.src = src
+        self.dst = dst
+        self.typee = typee
+        self.msg = msg
+
+    def to_json(self):
+        my_dict = {
+            'src': self.src,
+            'dst': self.dst,
+            'type': self.typee,
+            'msg': self.msg
+        }
+
+        return json.dumps(my_dict)
+
 class Router:
   """ Your Router """
-  def __init__(self, networks):
+  def __init__(self, asn, networks):
     self.routes = {}
-    self.updates = {}
+    self.announcements = []
     self.relations = {}
     self.sockets = {}
+    self.asn = asn
     for relationship in networks:
       network, relation = relationship.split("-")
       self.sockets[network] = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
@@ -120,8 +138,23 @@ class Router:
 
   def update(self, srcif, packet):
     """ handle update packets """
-    # TODO 
-    return False
+    # 1: save a copy of announcement
+    self.announcements.append(packet)
+
+    # 2: add entry to forwarding table
+    self.routes[packet[SRCE]] = packet[MESG][NTWK]
+
+    # 3: maybe send copies of announcement to neighbors
+    for network, socket in self.sockets.items():
+        if network == packet[SRCE]:
+            continue;
+
+        if self.relations.get(packet[SRCE]) == CUST or self.relations.get[network] == CUST:
+            msg = Message(packet[SRCE], packet[DEST], packet[TYPE], packet[MESG])
+            print(msg.to_json())
+            socket.sendall(msg.to_json().encode())
+
+    return True
 
   def revoke(self, packet):
     """ handle revoke packets """
@@ -135,8 +168,22 @@ class Router:
 
   def handle_packet(self, srcif, packet):
     """ dispatches a packet """
-    # TODO
-    return False
+
+    msg_type = packet.get('type')
+    if msg_type == DATA:
+        return self.forward(srcif, packet)
+    elif msg_type == DUMP:
+        return self.dump(packet)
+    elif msg_type == UPDT:
+        return self.update(srcif, packet)
+    elif msg_type == RVKE:
+        return self.revoke(packet)
+    elif msg_type == NRTE:
+        # TODO NEW FUNCTION?
+        return False
+    else:
+        print("UNKNOWN MESSAGE TYPE")
+        return False
 
   def send_error(self, conn, msg):
     """ Send a no_route error message """
@@ -165,7 +212,8 @@ class Router:
 
 if __name__ == "__main__":
   PARSER = argparse.ArgumentParser(description='route packets')
+  PARSER.add_argument('asn', metavar='asn', type=int, help="AS number for router")
   PARSER.add_argument('networks', metavar='networks', type=str, nargs='+', help="networks")
   ARGS = PARSER.parse_args()
-  Router(ARGS.networks).run()
+  Router(ARGS.asn, ARGS.networks).run()
 
