@@ -39,18 +39,18 @@ PROV = "prov"
 ##########################################################################################
 
 class Message:
-    def __init__(self, src, dst, typee, msg):
+    def __init__(self, typee, src, dst, msg):
+        self.typee = typee
         self.src = src
         self.dst = dst
-        self.typee = typee
         self.msg = msg
 
     def to_json(self):
         my_dict = {
-            'src': self.src,
-            'dst': self.dst,
-            'type': self.typee,
-            'msg': self.msg
+            TYPE: self.typee,
+            SRCE: self.src,
+            DEST: self.dst,
+            MESG: self.msg
         }
 
         return json.dumps(my_dict)
@@ -146,12 +146,13 @@ class Router:
 
     # 3: maybe send copies of announcement to neighbors
     for network, socket in self.sockets.items():
-        if network == packet[SRCE]:
+        # packet source is coming from network. skip
+        if packet[SRCE] == network:
             continue;
 
-        if self.relations.get(packet[SRCE]) == CUST or self.relations.get[network] == CUST:
-            msg = Message(packet[SRCE], packet[DEST], packet[TYPE], packet[MESG])
-            print(msg.to_json())
+        # update received from customer, send to all other neighbors
+        if self.relations.get(packet[SRCE]) == CUST:
+            msg = Message(packet[TYPE], packet[SRCE], packet[DEST], packet[MESG])
             socket.sendall(msg.to_json().encode())
 
     return True
@@ -169,7 +170,7 @@ class Router:
   def handle_packet(self, srcif, packet):
     """ dispatches a packet """
 
-    msg_type = packet.get('type')
+    msg_type = packet.get(TYPE)
     if msg_type == DATA:
         return self.forward(srcif, packet)
     elif msg_type == DUMP:
