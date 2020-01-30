@@ -146,14 +146,14 @@ class Router:
 
     # 3: maybe send copies of announcement to neighbors
     for network, socket in self.sockets.items():
-        # packet source is coming from network. skip
+        # packet source is coming from same network. skip
         if packet[SRCE] == network:
             continue;
 
         # update received from customer, send to all other neighbors
         if self.relations.get(packet[SRCE]) == CUST:
-            msg = Message(packet[TYPE], packet[SRCE], packet[DEST], packet[MESG])
-            socket.sendall(msg.to_json().encode())
+            msg = Message(packet[TYPE], packet[DEST], network, packet[MESG])
+            self.sockets[srcif].sendall(msg.to_json().encode())
 
     return True
 
