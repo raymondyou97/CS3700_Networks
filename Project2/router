@@ -5,7 +5,7 @@ import argparse
 import json
 import select
 import socket
-
+import copy
 ##########################################################################################
 
 # Message Fields
@@ -139,7 +139,7 @@ class Router:
   def update(self, srcif, packet):
     """ handle update packets """
     # 1: save a copy of announcement
-    self.announcements.append(packet)
+    self.announcements.append(copy.deepcopy(packet))
 
     # 2: add entry to forwarding table
     self.routes[packet[SRCE]] = packet[MESG][NTWK]
@@ -153,7 +153,9 @@ class Router:
 
         # update received from customer, send to all other neighbors
         if self.relations.get(packet[SRCE]) == CUST:
-            msg = Message(packet[TYPE], packet[DEST], network, packet[MESG])
+            msg_body = copy.deepcopy(packet[MESG])
+            msg_body[APTH] = [self.asn]
+            msg = Message(packet[TYPE], packet[DEST], network, msg_body)
             socket.sendall(msg.to_json())
 
     return True
