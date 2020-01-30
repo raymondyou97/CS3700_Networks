@@ -148,11 +148,12 @@ class Router:
     for network, socket in self.sockets.items():
         # packet source is coming from same network. skip
         if packet[SRCE] == network:
+            print("Same origin. Skip")
             continue;
 
         # update received from customer, send to all other neighbors
         if self.relations.get(packet[SRCE]) == CUST:
-            msg = Message(packet[TYPE], srcif, network, packet[MESG])
+            msg = Message(packet[TYPE], packet[DEST], network, packet[MESG])
             socket.sendall(msg.to_json().encode())
 
     return True
