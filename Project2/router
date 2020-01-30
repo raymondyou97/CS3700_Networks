@@ -152,8 +152,8 @@ class Router:
 
         # update received from customer, send to all other neighbors
         if self.relations.get(packet[SRCE]) == CUST:
-            msg = Message(packet[TYPE], packet[DEST], network, packet[MESG])
-            self.sockets[srcif].sendall(msg.to_json().encode())
+            msg = Message(packet[TYPE], srcif, network, packet[MESG])
+            socket.sendall(msg.to_json().encode())
 
     return True
 
