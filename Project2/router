@@ -147,7 +147,7 @@ class Router:
     # 3: maybe send copies of announcement to neighbors
     for network, socket in self.sockets.items():
         # packet source is coming from same network. skip
-        if packet[SRCE] == network:
+        if network == srcif:
             print("Same origin. Skip")
             continue;
 
