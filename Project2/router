@@ -53,7 +53,7 @@ class Message:
             MESG: self.msg
         }
 
-        return json.dumps(my_dict)
+        return json.dumps(my_dict).encode()
 
 class Router:
   """ Your Router """
@@ -154,7 +154,7 @@ class Router:
         # update received from customer, send to all other neighbors
         if self.relations.get(packet[SRCE]) == CUST:
             msg = Message(packet[TYPE], packet[DEST], network, packet[MESG])
-            socket.sendall(msg.to_json().encode())
+            socket.sendall(msg.to_json())
 
     return True
 
