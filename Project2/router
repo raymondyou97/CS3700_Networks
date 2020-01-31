@@ -172,6 +172,9 @@ class Router:
   def dump(self, packet):
     """ handles dump table requests """
     print(packet)
+    new_msg = [{NTWK: msg[NTWK], NMSK: msg[NMSK], PEER: src} for src, msg in self.routes.items()]
+    msg = Message(packet[DEST], packet[SRCE], TABL, new_msg)
+    self.sockets[packet[SRCE]].sendall(msg.to_json())
     return True
 
   def handle_packet(self, srcif, packet):
