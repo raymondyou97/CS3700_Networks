@@ -166,7 +166,6 @@ class Router:
     for network, socket in self.sockets.items():
         # packet source is coming from same network. skip
         if network == srcif:
-            print("Same origin. Skip")
             continue;
 
         # update received from customer, send to all other neighbors
@@ -235,6 +234,14 @@ class Router:
             if self.sockets[sock] == conn:
               srcif = sock
           msg = json.loads(k)
+
+          # DEBUG STATEMENTS
+          print("---------------------------------")
+          print("[NEW MESSAGE]")
+          print("SRCIF", srcif)
+          print("MSG", msg)
+          print("---------------------------------")
+
           if not self.handle_packet(srcif, msg):
             self.send_error(conn, msg)
         else:
