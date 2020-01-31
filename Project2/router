@@ -128,7 +128,24 @@ class Router:
 
   def forward(self, srcif, packet):
     """ Forward a data packet """
-    # TODO
+
+    # only need to forward to all neighbors currently for milestone
+    for neighbor_ip in self.relations:
+        # send to everyone but the originator
+        if srcif != neighbor_ip:
+            msg = Message(packet[SRCE], packet[DEST], packet[TYPE], packet[MESG])
+            self.sockets[srcif].send(msg.to_json())
+
+    # # NOT NEEDED YET FOR MILESTONE
+    # # check if our router has a route to the given destination network
+    # if srcif in self.routes.keys():
+    #     
+    # # no route, return a NO ROUTE 
+    # else:
+    #     internal_ip = get_interal_ip(srcif)
+    #     msg = Message(internal_ip, packet[SRCE], NRTE, {})
+    #     self.sockets[srcif].sendall(msg.to_json())
+
     return False
 
   def coalesce(self):
@@ -138,6 +155,7 @@ class Router:
 
   def update(self, srcif, packet):
     """ handle update packets """
+
     # 1: save a copy of announcement (List of packets)
     self.updates.append(packet)
 
@@ -193,6 +211,14 @@ class Router:
     """ Send a no_route error message """
     # TODO
     return
+
+  def get_internal_ip(self, external_ip):
+    """ Get the router's internal IP for an external router/ip """
+    for i in self.routes:
+        if i[SRCE] == external_ip:
+            return i[DEST]
+
+    return ''
 
   def run(self):
     """ main loop for the router """
