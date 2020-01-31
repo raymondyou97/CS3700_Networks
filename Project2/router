@@ -52,8 +52,7 @@ class Message:
             TYPE: self.typee,
             MESG: self.msg
         }
-
-        return json.dumps(my_dict).encode()
+        return json.dumps(my_dict).encode('utf-8')
 
 class Router:
   """ Your Router """
@@ -129,22 +128,11 @@ class Router:
   def forward(self, srcif, packet):
     """ Forward a data packet """
 
-    # only need to forward to all neighbors currently for milestone
-    for neighbor_ip in self.relations:
-        # send to everyone but the originator
-        if srcif != neighbor_ip:
+    for network, socket in self.sockets.items():
+        # don't send message back to original sender
+        if (network != srcif):
             msg = Message(packet[SRCE], packet[DEST], packet[TYPE], packet[MESG])
-            self.sockets[srcif].send(msg.to_json())
-
-    # # NOT NEEDED YET FOR MILESTONE
-    # # check if our router has a route to the given destination network
-    # if srcif in self.routes.keys():
-    #     
-    # # no route, return a NO ROUTE 
-    # else:
-    #     internal_ip = get_interal_ip(srcif)
-    #     msg = Message(internal_ip, packet[SRCE], NRTE, {})
-    #     self.sockets[srcif].sendall(msg.to_json())
+            socket.sendall(msg.to_json())
 
     return False
 
@@ -164,15 +152,14 @@ class Router:
 
     # 3: maybe send copies of announcement to neighbors
     for network, socket in self.sockets.items():
-        # packet source is coming from same network. skip
-        if network == srcif:
-            continue;
-
-        # update received from customer, send to all other neighbors
-        if self.relations.get(packet[SRCE]) == CUST:
-            msg_body = copy.deepcopy(packet[MESG])
-            msg_body[APTH] = [self.asn]
-            msg = Message(packet[DEST], network, packet[TYPE], msg_body)
+        # don't send message back to original sender
+        if (network != srcif):
+            # add our ASN 
+            new_msg = packet[MESG]
+            new_msg[APTH].append(self.asn)
+            # update network to local address (ends with 1)
+            internal_ip = self.get_internal_ip(network)
+            msg = Message(internal_ip, network, UPDT, new_msg)
             socket.sendall(msg.to_json())
 
     return True
@@ -184,7 +171,7 @@ class Router:
 
   def dump(self, packet):
     """ handles dump table requests """
-    # TODO
+    print(packet)
     return True
 
   def handle_packet(self, srcif, packet):
@@ -201,7 +188,7 @@ class Router:
         return self.revoke(packet)
     elif msg_type == NRTE:
         # TODO NEW FUNCTION?
-        return False
+        return True
     else:
         print("UNKNOWN MESSAGE TYPE")
         return False
@@ -213,11 +200,11 @@ class Router:
 
   def get_internal_ip(self, external_ip):
     """ Get the router's internal IP for an external router/ip """
-    for i in self.routes:
-        if i[SRCE] == external_ip:
-            return i[DEST]
-
-    return ''
+    if external_ip[-1:] == '2':
+        return external_ip[:-1] + '1'
+    else:
+        # not a proper ip of a neighbor (aka ends in 2)
+        return ''
 
   def run(self):
     """ main loop for the router """
@@ -236,11 +223,11 @@ class Router:
           msg = json.loads(k)
 
           # DEBUG STATEMENTS
-          print("---------------------------------")
+          print("<--------------------------------->")
           print("[NEW MESSAGE]")
           print("SRCIF", srcif)
           print("MSG", msg)
-          print("---------------------------------")
+          print("<--------------------------------->")
 
           if not self.handle_packet(srcif, msg):
             self.send_error(conn, msg)
