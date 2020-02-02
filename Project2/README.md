@@ -1,7 +1,8 @@
 # Project 2
 
 - BGP Router
-- Team members: Raymond You, Oliver Zheng
+- Team Name: PythonCats
+- Team Members: Raymond You, Oliver Zheng
 
 ## High-level Approach
 First, we made sure we were able to connect to our neighbors and successfully send messages and receive messages back. We then checked that we were able to serialize and deserialize the JSON properly. Next, we worked on getting the simplest UPDATE message to pass. Then, we moved on to the DATA message, and finally, the DUMP message.
