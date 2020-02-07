@@ -36,13 +36,16 @@ CUST = "cust"
 PEER = "peer"
 PROV = "prov"
 
+# other
+SRC_IF = "src_if"
+INTERNAL_IP = "internal_ip"
+
 ##########################################################################################
 
 class Router:
     """ Your Router """
     def __init__(self, asn, networks):
-        self.routes = {}
-        self.updates = []
+        self.routes = []
         self.relations = {}
         self.sockets = {}
         self.asn = asn
@@ -56,15 +59,11 @@ class Router:
     def lookup_routes(self, daddr):
         """ Lookup all valid routes for an address """
         outroutes = []
-        for src, msg in self.routes.items():
-            first = daddr.split('.')[0]
-            second = msg[NTWK].split('.')[0]
+        first = daddr.split('.')[0]
+        for r in self.routes:
+            second = r[MESG][NTWK].split('.')[0]
             if first == second:
-                route = { 
-                    SRCE: src, 
-                    MESG: msg
-                }
-                outroutes.append(route)
+                outroutes.append(r)
 
         return outroutes
 
@@ -148,10 +147,13 @@ class Router:
     def update(self, srcif, packet):
         """ handle update packets """
 
-        # 1: save a copy of announcement (List of packets)
-        self.updates.append(packet)
-        # 2: add entry to forwarding table. Map with (srcif) -> (msg content)
-        self.routes[srcif] = copy.deepcopy(packet[MESG])
+        # add entry to our routes table
+        packet_copy = copy.deepcopy(packet)
+        # source of packet (external IP)
+        packet_copy[SRC_IF] = srcif
+        # our internal IP for this source
+        packet_copy[INTERNAL_IP] = self.get_internal_ip(packet[DEST])
+        self.routes.append(packet_copy)
 
         # 3: maybe send copies of announcement to neighbors
         for network, socket in self.sockets.items():
@@ -175,11 +177,11 @@ class Router:
     def dump(self, packet):
         """ handles dump table requests """
         new_msg = []
-        for src, msg in self.routes.items():
+        for r in self.routes:
             my_dict = {
-                NTWK: msg[NTWK],
-                NMSK: msg[NMSK],
-                PEER: src
+                NTWK: r[MESG][NTWK],
+                NMSK: r[MESG][NMSK],
+                PEER: r[SRC_IF]
             }
             new_msg.append(my_dict)
 
