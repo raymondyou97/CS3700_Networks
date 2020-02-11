@@ -36,7 +36,7 @@ CUST = "cust"
 PEER = "peer"
 PROV = "prov"
 
-# other
+# other variables
 SRC_IF = "src_if"
 INTERNAL_IP = "internal_ip"
 
@@ -59,37 +59,116 @@ class Router:
     def lookup_routes(self, daddr):
         """ Lookup all valid routes for an address """
         outroutes = []
-        first = daddr.split('.')[0]
+        binary_of_dest = self.ip_to_binary(daddr)
+        best_cidr = float('-inf')
+
         for r in self.routes:
-            second = r[MESG][NTWK].split('.')[0]
-            if first == second:
+            # convert network and netmask of route to usable forms for comparison
+            binary_of_network = self.ip_to_binary(r[MESG][NTWK])
+            cidr_of_netmask = self.ip_to_binary(r[MESG][NMSK]).count('1')
+            # get ip part based on cidr
+            dst = binary_of_dest[:cidr_of_netmask]
+            ntk = binary_of_network[:cidr_of_netmask]
+            if dst == ntk:
+                # route is a better match, clear previous and start over with just this route
+                if best_cidr < cidr_of_netmask:
+                    best_cidr = cidr_of_netmask
+                    outroutes.clear()
                 outroutes.append(r)
 
         return outroutes
 
     def get_shortest_as_path(self, routes):
         """ select the route with the shortest AS Path """
-        # TODO
         outroutes = []
+        min_val = float('inf');
+        # get shortest AS path first
+        for r in routes:
+            if len(r[MESG][APTH]) < min_val:
+                min_val = len(r[MESG][APTH])
+        # find all routes with that val
+        for r in routes:
+            if len(r[MESG][APTH]) == min_val:
+                outroutes.append(r)
+
         return outroutes
 
     def get_highest_preference(self, routes):
-        """ select the route with the shortest AS Path """
-        # TODO
+        """ select the route with the highest localpref value """
         outroutes = []
+        max_val = float('-inf')
+        # find highest local pref first
+        for r in routes:
+            if r[MESG][LPRF] > max_val:
+                max_val = r[MESG][LPRF]
+        # find all routes with that val
+        for r in routes:
+            if r[MESG][LPRF] == max_val:
+                outroutes.append(r)
+
         return outroutes
 
     def get_self_origin(self, routes):
         """ select self originating routes """
-        # TODO
         outroutes = []
-        return outroutes
+        # find all routes with self originating routes
+        for r in routes:
+            if r[MESG][SORG] == True:
+                outroutes.append(r)
+        
+        # need to return default routes if we have 0 self originating routes
+        if outroutes:
+            return outroutes
+        else:
+            return routes
 
     def get_origin_routes(self, routes):
-        """ select origin routes: EGP > IGP > UNK """
-        # TODO
+        """ select origin routes: IGP > EDP > UNK """
         outroutes = []
+        all_origins = []
+
+        # get list of all origins
+        for r in routes:
+            all_origins.append(r[MESG][ORIG])
+
+        # find best origin
+        best_origin = 'UNK'
+        if 'IGP' in all_origins:
+            best_origin = 'IGP'
+        elif 'EGP' in all_origins:
+            best_origin = 'EGP'
+        
+        # find all routes with that origin
+        for r in routes:
+            if r[MESG][ORIG] == best_origin:
+                outroutes.append(r)
+
         return outroutes
+
+    def get_lowest_ip(self, routes):
+        """ Get the routes with the lowest IP Address """
+        outroutes = []
+        lowest_ip = None
+
+        # get a list of all ips split before comparing
+        all_ips = []
+        for r in routes:
+            all_ips.append(r[INTERNAL_IP].split('.'))
+
+        # find smallest first part of IP, implement more parts if needed for tests ???
+        first_smallest = float('inf')
+        for i in all_ips:
+            if int(i[0]) < first_smallest:
+                first_smallest = int(i[0])
+                lowest_ip = '.'.join(i)
+
+        # find route(s) with the lowest ip
+        for r in routes:
+            if r[INTERNAL_IP] == lowest_ip:
+                outroutes.append(r)
+
+        return outroutes
+
 
     def filter_relationships(self, srcif, routes):
         """ Don't allow Peer->Peer, Peer->Prov, or Prov->Peer forwards """
@@ -102,25 +181,24 @@ class Router:
         peer = None
         routes = self.lookup_routes(daddr)
 
-        # TO DO AFTER MILESTONE, NO RULES YET.
-        ## Rules go here
-        #if routes:
-        #  # 1. Highest Preference
-        #  routes = self.get_highest_preference(routes)
-        #  # 2. Self Origin
-        #  routes = self.get_self_origin(routes)
-        #  # 3. Shortest ASPath
-        #  routes = self.get_shortest_as_path(routes)
-        #  # 4. EGP > IGP > UNK
-        #  routes = self.get_origin_routes(routes)
-        #  # 5. Lowest IP Address
-        #  # TODO
-        #  # Final check: enforce peering relationships
-        #  routes = self.filter_relationships(srcif, routes)
+        # Rules go here
+        if routes:
+          # 1. Highest Preference
+          routes = self.get_highest_preference(routes)
+          # 2. Self Origin
+          routes = self.get_self_origin(routes)
+          # 3. Shortest ASPath
+          routes = self.get_shortest_as_path(routes)
+          # 4. EGP > IGP > UNK
+          routes = self.get_origin_routes(routes)
+          # 5. Lowest IP Address
+          routes = self.get_lowest_ip(routes)
+          # Final check: enforce peering relationships
+          # TODO
+          #routes = self.filter_relationships(srcif, routes)
 
-        if len(routes) > 0:
-            peer = routes[0][SRCE]
-            return self.sockets[peer] if peer else None
+        if len(routes) > 0 and routes[0][SRCE]:
+            return self.sockets[routes[0][SRCE]]
         else:
             # No viable routes found
             return None
@@ -128,7 +206,7 @@ class Router:
     def forward(self, srcif, packet):
         """ Forward a data packet """
 
-        # get the 'best' route for now
+        # get the best route for our packet
         route = self.get_route(srcif, packet[DEST])
         if route:
             msg = self.build_message(packet[SRCE], packet[DEST], packet[TYPE], packet[MESG])
@@ -152,10 +230,10 @@ class Router:
         # source of packet (external IP)
         packet_copy[SRC_IF] = srcif
         # our internal IP for this source
-        packet_copy[INTERNAL_IP] = self.get_internal_ip(packet[DEST])
+        packet_copy[INTERNAL_IP] = self.get_internal_ip(packet[SRCE])
         self.routes.append(packet_copy)
 
-        # 3: maybe send copies of announcement to neighbors
+        # send copies of announcement to neighbors
         for network, socket in self.sockets.items():
             # don't send message back to original sender
             if network != srcif and self.relations[network] == CUST:
@@ -229,7 +307,24 @@ class Router:
             TYPE: typee,
             MESG: msg
         }
+
         return json.dumps(my_dict).encode()
+
+    def ip_to_binary(self, ip, with_period=False):
+        """ Converts an IP into binary with period separated """
+        ip_parts = ip.split('.')
+        binary_parts = []
+        for i in ip_parts:
+            # drop the leading 0b and pad with leading 0s so each length
+            bi = bin(int(i))[2:].zfill(8)
+            binary_parts.append(bi)
+
+        if with_period:
+            final_bi = '.'.join(binary_parts)
+        else:
+            final_bi = ''.join(binary_parts)
+
+        return final_bi
 
     def run(self):
         """ main loop for the router """
@@ -265,3 +360,4 @@ if __name__ == "__main__":
     PARSER.add_argument('networks', metavar='networks', type=str, nargs='+', help="networks")
     ARGS = PARSER.parse_args()
     Router(ARGS.asn, ARGS.networks).run()
+
