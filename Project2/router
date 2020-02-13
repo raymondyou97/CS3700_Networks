@@ -46,6 +46,7 @@ class Router:
     """ Your Router """
     def __init__(self, asn, networks):
         self.updates = []
+        self.revokes = []
         self.routes = []
         self.relations = {}
         self.sockets = {}
@@ -64,18 +65,22 @@ class Router:
         best_cidr = float('-inf')
 
         for r in self.routes:
-            # convert network and netmask of route to usable forms for comparison
+            # convert network and netmask to binary for longest prefix matching
             binary_of_network = self.ip_to_binary(r[MESG][NTWK])
             cidr_of_netmask = self.ip_to_binary(r[MESG][NMSK]).count('1')
-            # get ip part based on cidr
+            # use subnet mask to get the prefix
             dst = binary_of_dest[:cidr_of_netmask]
             ntk = binary_of_network[:cidr_of_netmask]
+            # matching prefixes?
             if dst == ntk:
-                # route is a better match, clear previous and start over with just this route
+                # found better match. clear and start over with just this route
                 if best_cidr < cidr_of_netmask:
                     best_cidr = cidr_of_netmask
                     outroutes.clear()
-                outroutes.append(r)
+                    outroutes.append(r)
+                # 1 to 1 match, add route to list
+                if best_cidr == cidr_of_netmask:
+                    outroutes.append(r)
 
         return outroutes
 
@@ -177,6 +182,7 @@ class Router:
         for r in routes:
             src = self.relations[srcif]
             dest = self.relations[r[SRC_IF]]
+            # there prob is a single if conditional that can account for all cases but watevs
             if src == PEER and dest == PEER:
                 continue
             if src == PEER and dest == PROV:
@@ -270,11 +276,11 @@ class Router:
 
     def revoke(self, packet):
         """ handle revoke packets """
-        # 1. add entry to our routes table
+        # add entry to our routes table
         packet_copy = copy.deepcopy(packet)
-        self.updates.append(packet_copy)
+        self.revokes.append(packet_copy)
 
-        # 2. remove dead entry from forwarding table
+        # remove dead entry from forwarding table
         for row in packet_copy[MESG]:
             for r in self.routes:
                 # check if source matching first
@@ -283,7 +289,7 @@ class Router:
                     if r[MESG][NTWK] == row[NTWK] and r[MESG][NMSK] == row[NMSK]:
                         self.routes.remove(r)
 
-        # 3. send copies of route revocation to its neighbors (same rules as update)
+        # send copies of route revocation to its neighbors (same rules as update)
         for network, socket in self.sockets.items():
             # don't send message back to original sender
             if network != packet[SRCE] and self.relations[network] == CUST:
@@ -322,7 +328,7 @@ class Router:
         elif msg_type == RVKE:
             return self.revoke(packet)
         else:
-            print("UNKNOWN MESSAGE TYPE")
+            print("ERROR HANDLING PACKET")
             return False
 
     def send_error(self, conn, msg):
@@ -384,11 +390,12 @@ class Router:
                     msg = json.loads(k)
 
                     # DEBUG STATEMENTS
-                    print("<--------------------------------->")
-                    print("[NEW MESSAGE]")
-                    print("SRCIF:", srcif)
-                    print("MSG:", msg)
-                    print("<--------------------------------->")
+                    if False:
+                        print("<--------------------------------->")
+                        print("[NEW MESSAGE INCOMING]")
+                        print("SOURCE:", srcif)
+                        print("MSG:", msg)
+                        print("<--------------------------------->")
 
                     if not self.handle_packet(srcif, msg):
                         self.send_error(conn, msg)
