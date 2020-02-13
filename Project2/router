@@ -174,6 +174,17 @@ class Router:
     def filter_relationships(self, srcif, routes):
         """ Don't allow Peer->Peer, Peer->Prov, or Prov->Peer forwards """
         outroutes = []
+        for r in routes:
+            src = self.relations[srcif]
+            dest = self.relations[r[SRC_IF]]
+            if src == PEER and dest == PEER:
+                continue
+            if src == PEER and dest == PROV:
+                continue
+            if src == PROV and dest == PEER:
+                continue
+            outroutes.append(r)
+
         return outroutes
 
     def get_route(self, srcif, daddr):
@@ -194,8 +205,7 @@ class Router:
           # 5. Lowest IP Address
           routes = self.get_lowest_ip(routes)
           # Final check: enforce peering relationships
-          # TODO
-          #routes = self.filter_relationships(srcif, routes)
+          routes = self.filter_relationships(srcif, routes)
 
         if len(routes) > 0 and routes[0][SRCE]:
             return self.sockets[routes[0][SRCE]]
@@ -241,15 +251,20 @@ class Router:
 
         # send copies of announcement to neighbors
         for network, socket in self.sockets.items():
+            # add our ASN
+            new_msg = copy.deepcopy(packet[MESG])
+            new_msg[APTH].append(self.asn)
+            # update network to local address (ends with 1)
+            internal_ip = self.get_internal_ip(network)
+            msg = self.build_message(internal_ip, network, UPDT, new_msg)
             # don't send message back to original sender
-            if network != srcif and self.relations[network] == CUST:
-                # add our ASN
-                new_msg = copy.deepcopy(packet[MESG])
-                new_msg[APTH].append(self.asn)
-                # update network to local address (ends with 1)
-                internal_ip = self.get_internal_ip(network)
-                msg = self.build_message(internal_ip, network, UPDT, new_msg)
-                socket.sendall(msg)
+            if network != srcif:
+                # update received from customer, send to all neighbors
+                if self.relations[srcif] == CUST:
+                    socket.sendall(msg)
+                # update received from peer/prov, send only to customers
+                elif (self.relations[srcif] == PEER or self.relations[srcif] == PROV) and self.relations[network] == CUST:
+                    socket.sendall(msg)
 
         return True
 
