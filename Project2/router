@@ -40,8 +40,8 @@ PROV = "prov"
 # other variables
 SRC_IF = "src_if"
 INTERNAL_IP = "internal_ip"
-ip4_bit_min = 0
-ip4_bit_max = 32
+IP4_BIT_MIN = 0
+IP4_BIT_MAX = 32
 
 ##########################################################################################
 
@@ -238,7 +238,7 @@ class Router:
         """ coalesce any routes that are right next to each other """
         routes = []
         # loop through every possible subnet mask
-        for netmask in range(ip4_bit_min, ip4_bit_max):
+        for netmask in range(IP4_BIT_MIN, IP4_BIT_MAX):
             routes.clear() # clear and restart each time
             for r in self.routes:
                 r_nmsk = self.ip_to_binary(r[MESG][NMSK]).count('1')
@@ -261,18 +261,18 @@ class Router:
                 # calculate route 1's network prefix
                 r1_network = self.ip_to_binary(r1[MESG][NTWK])
                 r1_netmask = self.ip_to_binary(r1[MESG][NMSK]).count('1')
-                r1_prefix = self.pad_end(r1_network[ip4_bit_min:r1_netmask], '0', ip4_bit_max)
+                r1_prefix = self.pad_end(r1_network[IP4_BIT_MIN:r1_netmask], '0', IP4_BIT_MAX)
                 # calculate route 2's network prefix
                 r2_network = self.ip_to_binary(r2[MESG][NTWK])
                 r2_netmask = self.ip_to_binary(r2[MESG][NMSK]).count('1')
-                r2_prefix = self.pad_end(r2_network[ip4_bit_min:r2_netmask], '0', ip4_bit_max)
+                r2_prefix = self.pad_end(r2_network[IP4_BIT_MIN:r2_netmask], '0', IP4_BIT_MAX)
                 # check if same next-hop router
-                if r1_prefix[ip4_bit_min:netmask] == r2_prefix[ip4_bit_min:netmask]:
+                if r1_prefix[IP4_BIT_MIN:netmask] == r2_prefix[IP4_BIT_MIN:netmask]:
                     # remove unnecessary route
                     self.routes.remove(r2)
                     # update netmask for keeper route
                     base_bits = self.pad_end('', '1', netmask)
-                    final_bits = self.pad_end(base_bits, '0', ip4_bit_max)
+                    final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
                     r1[MESG][NMSK] = self.binary_to_ip(final_bits)
             # done checking, add to routes checked list
             routes_checked.append(r1)
