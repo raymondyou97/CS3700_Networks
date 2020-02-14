@@ -268,24 +268,26 @@ class Router:
                 r2_netmask = self.ip_to_binary(r2[MESG][NMSK]).count('1')
                 r2_prefix = self.pad_end(r2_network[:r2_netmask], '0', IP4_BIT_MAX)
                 # check if same next-hop router
-                if (r1[MESG][LPRF] == r2[MESG][LPRF] and r1[MESG][ORIG] == r2[MESG][ORIG]
-                    and r1[MESG][APTH] == r2[MESG][APTH] and r1[MESG][SORG] == r2[MESG][SORG]
-                    and r1[MESG][SORG] == r2[MESG][SORG]):
-                    # remove unnecessary route
-                    self.routes.remove(r2)
-                    # update netmask for keeper route
-                    base_bits = self.pad_end('', '1', netmask)
-                    final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
-                    r1[MESG][NMSK] = self.binary_to_ip(final_bits)
-                    #Check if the new netmask is able to aggregagte with another
-                    recheck_routes = []
-                    r1_nmsk = final_bits.count('1')
-                    for r in self.routes:
-                        r_nmsk = self.ip_to_binary(r[MESG][NMSK]).count('1')
-                        if r1_nmsk == r_nmsk:
-                            recheck_routes.append(r)
-                            recheck_routes.append(r1)
-                            self.coalesce_helper(r_nmsk, recheck_routes)
+
+                if r1_prefix[:netmask] == r2_prefix[:netmask]:
+                    if (r1[MESG][LPRF] == r2[MESG][LPRF] and r1[MESG][ORIG] == r2[MESG][ORIG]
+                        and r1[MESG][APTH] == r2[MESG][APTH] and r1[MESG][SORG] == r2[MESG][SORG]
+                        and r1[MESG][SORG] == r2[MESG][SORG]):
+                        # remove unnecessary route
+                        self.routes.remove(r2)
+                        # update netmask for keeper route
+                        base_bits = self.pad_end('', '1', netmask)
+                        final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
+                        r1[MESG][NMSK] = self.binary_to_ip(final_bits)
+                        #Check if the new netmask is able to aggregagte with another
+                        recheck_routes = []
+                        r1_nmsk = final_bits.count('1')
+                        for r in self.routes:
+                            r_nmsk = self.ip_to_binary(r[MESG][NMSK]).count('1')
+                            if r1_nmsk == r_nmsk:
+                                recheck_routes.append(r)
+                                recheck_routes.append(r1)
+                                self.coalesce_helper(r_nmsk, recheck_routes)
             # done checking, add to routes checked list
             routes_checked.append(r1)
 
