@@ -267,12 +267,16 @@ class Router:
                 r2_prefix = self.pad_end(r2_network[:r2_netmask], '0', IP4_BIT_MAX)
                 # check if same next-hop router
                 if r1_prefix[:netmask] == r2_prefix[:netmask]:
-                    # remove unnecessary route
-                    self.routes.remove(r2)
-                    # update netmask for keeper route
-                    base_bits = self.pad_end('', '1', netmask)
-                    final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
-                    r1[MESG][NMSK] = self.binary_to_ip(final_bits)
+                    # check if same attributes
+                    if (r1[MESG][LPRF] == r2[MESG][LPRF] and r1[MESG][ORIG] == r2[MESG][ORIG]
+                    and r1[MESG][APTH] == r2[MESG][APTH] and r1[MESG][SORG] == r2[MESG][SORG]
+                    and r1[MESG][SORG] == r2[MESG][SORG]):
+                        # remove unnecessary route
+                        self.routes.remove(r2)
+                        # update netmask for keeper route
+                        base_bits = self.pad_end('', '1', netmask)
+                        final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
+                        r1[MESG][NMSK] = self.binary_to_ip(final_bits)
             # done checking, add to routes checked list
             routes_checked.append(r1)
 
@@ -314,19 +318,21 @@ class Router:
         # add entry to our revokes table
         self.revokes.append(packet)
 
-        # clear routes and rebuild table with updates and revokes
+        # clear routes and prep for disaggregation
         self.routes.clear()
 
+        # add back every route from updates
         for update in self.updates:
             self.routes.append(update)
 
+        # revoke any routes
         for revoke in self.revokes:
             for row in revoke[MESG]:
                 for route in self.routes:
                     # check if source matching first
-                    if route[SRC_IF] == packet[SRCE]:
-                        # check if network and netmask matching
-                        if route[MESG][NTWK] == row[NTWK] and route[MESG][NMSK] == row[NMSK]:
+                    if route[SRCE] == revoke[SRCE]:
+                        # check if network info matches (netmask needed too)?
+                        if route[MESG][NTWK] == row[NTWK]:
                             self.routes.remove(route)
 
         # coalesce after each revoke
