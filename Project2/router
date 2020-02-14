@@ -233,6 +233,7 @@ class Router:
 
         return True
 
+
     def coalesce(self):
         """ coalesce any routes that are right next to each other """
         routes = []
@@ -245,6 +246,7 @@ class Router:
                     routes.append(r)
             # attempt to coalesce final route choices
             self.coalesce_helper(netmask, routes)
+
 
     def coalesce_helper(self, netmask, routes):
         """ Helper that checks potential routes to see if they can be coalesced """
@@ -273,6 +275,16 @@ class Router:
                     base_bits = self.pad_end('', '1', netmask)
                     final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
                     r1[MESG][NMSK] = self.binary_to_ip(final_bits)
+                    #Check if the new netmask is able to aggregagte with another
+                    recheck_routes = []
+                    r1_nmsk = final_bits.count('1')
+                    for r in self.routes:
+                        r_nmsk = self.ip_to_binary(r[MESG][NMSK]).count('1')
+                        if r1_nmsk == r_nmsk:
+                            recheck_routes.append(r)
+                            recheck_routes.append(r1)
+                            self.coalesce_helper(r_nmsk, recheck_routes)
+
             # done checking, add to routes checked list
             routes_checked.append(r1)
 
@@ -284,7 +296,7 @@ class Router:
         # our internal IP for this source
         packet_copy[INTERNAL_IP] = self.get_internal_ip(packet[SRCE])
         # add entry to our routes and updates tables
-        self.routes.append(packet_copy)
+        self.routes.append(copy.deepcopy(packet_copy))
         self.updates.append(packet_copy)
 
         # send copies of announcement to neighbors
@@ -318,7 +330,9 @@ class Router:
         self.routes.clear()
 
         for update in self.updates:
-            self.routes.append(update)
+            newUpdate = copy.deepcopy(update)
+
+            self.routes.append(copy.deepcopy(update))
 
         for revoke in self.revokes:
             for row in revoke[MESG]:
@@ -461,6 +475,7 @@ class Router:
                     if not self.handle_packet(srcif, msg):
                         self.send_error(conn, msg)
                 else:
+                    print ("ROUTES:", self.routes)
                     return
 
 if __name__ == "__main__":
