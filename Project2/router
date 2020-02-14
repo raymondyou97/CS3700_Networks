@@ -254,7 +254,7 @@ class Router:
         # iterate through every route combination
         for r1 in routes:
             for r2 in routes:
-                # skip if routes are same, every checked, or source IPs arent matching
+                # skip if routes are same, already checked, or source IPs arent matching
                 if r1 == r2 or r2 in routes_checked or r1[SRC_IF] != r2[SRC_IF]:
                     continue
                 # calculate route 1's network prefix and pad until 32 bits
