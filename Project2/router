@@ -169,7 +169,6 @@ class Router:
 
         return outroutes
 
-
     def filter_relationships(self, srcif, routes):
         """ Don't allow Peer->Peer, Peer->Prov, or Prov->Peer forwards """
         outroutes = []
@@ -233,7 +232,6 @@ class Router:
 
         return True
 
-
     def coalesce(self):
         """ coalesce any routes that are right next to each other """
         routes = []
@@ -246,7 +244,6 @@ class Router:
                     routes.append(r)
             # attempt to coalesce final route choices
             self.coalesce_helper(netmask, routes)
-
 
     def coalesce_helper(self, netmask, routes):
         """ Helper that checks potential routes to see if they can be coalesced """
@@ -268,8 +265,8 @@ class Router:
                 r2_netmask = self.ip_to_binary(r2[MESG][NMSK]).count('1')
                 r2_prefix = self.pad_end(r2_network[:r2_netmask], '0', IP4_BIT_MAX)
                 # check if same next-hop router
-
                 if r1_prefix[:netmask] == r2_prefix[:netmask]:
+                    # check if other attributes are matching
                     if (r1[MESG][LPRF] == r2[MESG][LPRF] and r1[MESG][ORIG] == r2[MESG][ORIG]
                         and r1[MESG][APTH] == r2[MESG][APTH] and r1[MESG][SORG] == r2[MESG][SORG]
                         and r1[MESG][SORG] == r2[MESG][SORG]):
@@ -279,7 +276,7 @@ class Router:
                         base_bits = self.pad_end('', '1', netmask)
                         final_bits = self.pad_end(base_bits, '0', IP4_BIT_MAX)
                         r1[MESG][NMSK] = self.binary_to_ip(final_bits)
-                        #Check if the new netmask is able to aggregagte with another
+                        #Check if the new netmask is able to aggregate with another
                         recheck_routes = []
                         r1_nmsk = final_bits.count('1')
                         for r in self.routes:
@@ -334,9 +331,7 @@ class Router:
 
         # add back every route from updates
         for update in self.updates:
-            newUpdate = copy.deepcopy(update)
-
-            self.routes.append(copy.deepcopy(update))
+            self.routes.append(update)
 
         # revoke any routes
         for revoke in self.revokes:
