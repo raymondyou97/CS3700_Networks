@@ -40,7 +40,6 @@ PROV = "prov"
 # other variables
 SRC_IF = "src_if"
 INTERNAL_IP = "internal_ip"
-IP4_BIT_MIN = 0
 IP4_BIT_MAX = 32
 
 ##########################################################################################
@@ -238,7 +237,7 @@ class Router:
         """ coalesce any routes that are right next to each other """
         routes = []
         # loop through every possible subnet mask
-        for netmask in range(IP4_BIT_MIN, IP4_BIT_MAX):
+        for netmask in range(0, IP4_BIT_MAX):
             routes.clear() # clear and restart each time
             for r in self.routes:
                 r_nmsk = self.ip_to_binary(r[MESG][NMSK]).count('1')
@@ -258,16 +257,16 @@ class Router:
                 # skip if routes are same, every checked, or source IPs arent matching
                 if r1 == r2 or r2 in routes_checked or r1[SRC_IF] != r2[SRC_IF]:
                     continue
-                # calculate route 1's network prefix
+                # calculate route 1's network prefix and pad until 32 bits
                 r1_network = self.ip_to_binary(r1[MESG][NTWK])
                 r1_netmask = self.ip_to_binary(r1[MESG][NMSK]).count('1')
-                r1_prefix = self.pad_end(r1_network[IP4_BIT_MIN:r1_netmask], '0', IP4_BIT_MAX)
-                # calculate route 2's network prefix
+                r1_prefix = self.pad_end(r1_network[:r1_netmask], '0', IP4_BIT_MAX)
+                # calculate route 2's network prefix and pad until 32 bits
                 r2_network = self.ip_to_binary(r2[MESG][NTWK])
                 r2_netmask = self.ip_to_binary(r2[MESG][NMSK]).count('1')
-                r2_prefix = self.pad_end(r2_network[IP4_BIT_MIN:r2_netmask], '0', IP4_BIT_MAX)
+                r2_prefix = self.pad_end(r2_network[:r2_netmask], '0', IP4_BIT_MAX)
                 # check if same next-hop router
-                if r1_prefix[IP4_BIT_MIN:netmask] == r2_prefix[IP4_BIT_MIN:netmask]:
+                if r1_prefix[:netmask] == r2_prefix[:netmask]:
                     # remove unnecessary route
                     self.routes.remove(r2)
                     # update netmask for keeper route
@@ -298,8 +297,9 @@ class Router:
             msg = self.build_message(internal_ip, network, UPDT, new_msg)
             # don't send message back to original sender
             if network != srcif:
+                src_type = self.relations[srcif]
                 # update received from customer, send to all neighbors
-                if self.relations[srcif] == CUST:
+                if src_type == CUST:
                     socket.sendall(msg)
                 # update received from peer/prov, send only to customers
                 elif (src_type == PEER or src_type == PROV) and self.relations[network] == CUST:
