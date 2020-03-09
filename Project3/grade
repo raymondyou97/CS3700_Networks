@@ -1,0 +1,86 @@
+#!/usr/bin/perl
+use Sys::Hostname;
+use POSIX;
+
+my $RUN_COUNT = 1;
+my $p_avg = -1;
+my $t_avg = -1;
+
+for ($i=0; $i<=$#ARGV; $i++) {
+  if ($ARGV[$i] eq "--run") {
+    $RUN_COUNT = $ARGV[$i + 1];
+  }
+}
+
+print "Tests\n";
+grade("Large 5Mb/s, 10 ms, 10% drop", 5, 10, 10, "large");
+grade("Large 10Mb/s, 50 ms, 10% drop", 10, 50, 10, "large");
+grade("Large 10Mb/s, 50 ms, 50% drop", 10, 50, 50, "large");
+grade("Large 3Mb/s, 10 ms, 20% drop", 3, 10, 20, "large");
+grade("Large 50Mb/s, 5 ms, 5% drop", 50, 5, 5, "large");
+grade("Huge 5Mb/s, 10 ms", 5, 10, 0, "huge");
+grade("Huge 5Mb/s, 10 ms, 10% drop", 5, 10, 10, "huge");
+grade("Huge 10Mb/s, 3 ms, 5% drop", 10, 3, 5, "huge");
+
+if ($RUN_COUNT > 1) {
+  print("\n--- Average scores ---\n");
+  print("Max transfer time: $t_avg T_min\n");
+  print("Max packets: $p_avg P_min\n");
+}
+
+sub grade {
+  my ($problem, $bandwidth, $latency, $drop, $size) = @_;
+  my $netsim = "--bandwidth $bandwidth --drop $drop --latency $latency";
+  `./netsim $netsim`;
+  my $args = "--size $size";
+  for ($i=0; $i<$RUN_COUNT; $i++) {
+    print("  $problem\n");
+    my $output = `./run $args`;
+
+    if ($output !~ m|Data match: Yes|) {
+      die("Test failed, aborting grade. Please use the run or test scripts for debugging.");
+    }
+
+    my $total_data = -1;
+    if ($size eq "huge") {
+      $total_data = 1000000;
+    } elsif ($size eq "large") {
+      $total_data = 100000;
+    }
+
+    if ($total_data == -1) {
+      die("Error: Unknown size");
+    }
+
+    my $p_th = ceil($total_data/1500);
+    my $p_min = 2 * $p_th * (1 + ($drop / 100));
+    my $t_min = $p_th * (1 + ($drop / 100)) * (($latency / 1000) + (1500 / ($bandwidth * 125000)));
+
+    if ($output =~ m|Time elapsed: ([0-9\.]*)|) {
+      $time = $1/1000;
+    } else {
+      die("Error: Could not find time elapsed");
+    }
+
+    if ($output =~ m|Packets sent: ([0-9\.]*)|) {
+      $packets = $1;
+    } else {
+      die("Error: Could not find packets sent");
+    }
+
+    my $p_score = int($packets)/$p_min;
+    my $t_score = int($time)/$t_min;
+    print("    seconds elapsed: $time, packets sent: $packets\n");
+    print("    t_min: $t_min, p_min: $p_min\n");
+    print("    Max transfer time: $t_score T_min\n");
+    print("    Max packets: $p_score P_min\n");
+
+    if ($i > 0) {
+      $p_avg = ($p_score + $p_avg)/2;
+      $t_avg = ($t_score + $t_avg)/2;
+    } else {
+      $p_avg = $p_score;
+      $t_avg = $t_score;
+    }
+  }
+}
