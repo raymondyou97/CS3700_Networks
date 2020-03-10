@@ -1,67 +1,107 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 import sys
-import socket
+import time
 import datetime
+import select
 import json
 
-MSG_SIZE = 1500
-TIMEOUT = 30
+from socket import socket, AF_INET, SOCK_DGRAM
+from struct import Struct
 
-def log(string):
-  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
-  sys.stderr.flush()
+# for logging to stdout
+def log_normal(string):
+    # redirect print output to stdout
+    print >> sys.stdout, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+  
+# for logging to stderr
+def log_error(string):
+    # redirect print output to stderr
+    print >> sys.stderr, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
-def main():
-  # Bind to localhost and an ephemeral port
-  udp_ip = "127.0.0.1"
-  udp_port = 0
+# connect to socket and setup attributes
+def setup_socket():
+    my_socket = socket(AF_INET, SOCK_DGRAM) 
+    my_socket.bind(('127.0.0.1', 0))
+    my_socket.settimeout(300000)
+    return my_socket
 
-  # Set up the socket
-  sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-  sock.bind((udp_ip, udp_port))
-  sock.settimeout(TIMEOUT)
+sequence_packet_map = {}
+received_sequences = []
+last_ack = 0
+# struct of int, char[] of length 1400, boolean, int
+packet = Struct('I 1400s ? I')
 
-  # Get port we bound to
-  udp_port = sock.getsockname()[1]
-  log(f"[bound] {udp_port}")
+# Set up the socket
+sock = setup_socket()
 
-  # Now listen for packets
-  while True:
-    result = sock.recvfrom(MSG_SIZE)
+# Get port we bound to
+UDP_PORT = sock.getsockname()[1]
+log_error("[bound] " + str(UDP_PORT))
+
+def unpack_data(data):
+    parts = packet.unpack(data)
+    return (parts[0], parts[1].split("\x00")[0], parts[2], parts[3])
+
+def send_ack(seq, data):
+    my_dict = {"ack": seq + len(data)}
+    msg = json.dumps(my_dict)
+    log_error("ABOUT TO SEND " + msg)
+    if sock.sendto(msg, addr) < len(msg):
+        log_error("[error] unable to fully send packet")
+    else:   
+        log_error("send ack " + str(seq + len(data))) 
+
+def process_data(packet):
+    global RECEIEVED
+    global last_ack
+  
+    seq, data, eof, _ = packet
+  
+    if seq in received_sequences:
+        send_ack(seq, data)
+        return
+  
+    # If the EOF flag is set, exit
+    if eof:
+        log_error("[completed]")
+        log_error(str(sequence_packet_map))
+        sys.exit(0)
+
+    received_sequences.append(seq)
+
+    # If there is data and seq = last acked, we accept it and print it out
+    # else we put it in the buffer
+
+    if data:
+        log_error("[recv data] " + str(seq) + " (" + str(len(data)) + ")")
+        # print if the correct next order packet has arrived
+        sequence_packet_map[seq] = packet 
+        next_seq = seq
+ 
+    while sequence_packet_map.get(next_seq, None) and last_ack == next_seq:
+        to_write = sequence_packet_map.get(next_seq)
+        last_ack = last_ack + len(to_write[1])
+        sys.stdout.write(to_write[1])
+        next_seq = next_seq + len(to_write[1])
+
+    # Send back an ack to the sender
+    send_ack(seq, data)
+
+while True:
+    result = sock.recvfrom(1500)
 
     # If nothing is ready, we hit the timeout
     if result:
-      (data, addr) = result
-      data = data.decode('ascii')
+        (data, addr) = result
 
-      try:
-        decoded = json.loads(data)
+        try:
+            data_pts = unpack_data(data)
+            process_data(data_pts)
 
-        # If the EOF flag is set, exit
-        if decoded['eof']:
-          log("[completed]")
-          sys.exit(0)
-
-        # If there is data, we accept it and print it out
-        if decoded['data']:
-          # If we receive data, we assume it's in-order
-          # You will need to do much more here
-          log(f"[recv data] {decoded['sequence']} ({len(decoded['data'])}) ACCEPTED (in-order)")
-          sys.stdout.write(decoded['data'])
-
-        # Send back an ack to the sender
-        msg = json.dumps({"ack": decoded['sequence'] + len(decoded['data'])})
-        log("ABOUT TO SEND " + msg)
-        if sock.sendto(msg.encode('ascii'), addr) < len(msg):
-          log("[error] unable to fully send packet")
-
-      except (ValueError, KeyError, TypeError) as exc:
-        log("[recv corrupt packet]")
-        raise exc
+        except (ValueError, KeyError, TypeError) as e:
+            log_error("[recv corrupt packet]")
+            raise e
     else:
-      log("[error] timeout")
-      sys.exit(-1)
-
-if __name__ == '__main__':
-  main()
+        log_error("[error] timeout")
+        sys.exit(-1)
