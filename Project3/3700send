@@ -80,7 +80,7 @@ def resend_packet(sequence):
     else:
         log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
-def iterate_window(sequence_num):
+def iterate_window(sequence_temp):
     for w in range(window_size):
         flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
         if flag:
