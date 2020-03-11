@@ -51,7 +51,7 @@ def unpack_data(data):
     return tupl
 
 # send back an ack to the sender
-def send_ack_msg(sequence, data):
+def deliver_ack(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
     log_normal("[sending] " + msg)
@@ -68,6 +68,7 @@ def termination_handler(flag):
         return
 
 def process_data(packet):
+    global received_sequences
     global last_ack # to allow mutation in a local context
 
     # deconstruct packet
@@ -78,7 +79,7 @@ def process_data(packet):
 
     # we have the given sequence, send back an ack
     if sequence in received_sequences:
-        send_ack_msg(sequence, data)
+        deliver_ack(sequence, data)
         return
 
     # add the new sequence to our list of received sequences
@@ -93,14 +94,15 @@ def process_data(packet):
         sequence_packet_map[sequence] = packet
         current_sequence = sequence
 
+    same_flag = last_ack == current_sequence
     # print out the data to STDOUT in-order
-    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
+    while sequence_packet_map.get(current_sequence, None) and same_flag:
         packet = sequence_packet_map.get(current_sequence)[1]
         sys.stdout.write(packet)
-        last_ack = last_ack + len(packet)
-        current_sequence = current_sequence + len(packet)
+        last_ack += len(packet)
+        current_sequence += len(packet)
 
-    send_ack_msg(sequence, data)
+    deliver_ack(sequence, data)
 
 # main loop where the 'receiving' happens
 while True:
