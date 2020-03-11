@@ -88,7 +88,7 @@ send_packet()
 
 # main loop where the 'sending logic' happens
 while True:
-    target_acks = []
+    target_acks = [] # keep track of acks
     sequence_temp = sequence_num
 
     for w in range(window_size):
@@ -99,7 +99,7 @@ while True:
         prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
         if not prev_packet:
             break
-        sequence_temp = sequence_temp - packet[1]
+        sequence_temp -= - packet[1]
 
     log_normal(str(target_acks))
 
@@ -119,12 +119,12 @@ while True:
             (data, addr) = result
             try:
                 decoded = json.loads(data)
-                ack = decoded['ack']
+                ack_return = decoded["ack_num"]
 
-                if ack in target_acks:
-                    acks_sent.append(ack)
-                    target_acks.remove(ack)
-                    log_normal("[recv ack] " + str(ack))
+                if ack_return in target_acks:
+                    acks_sent.append(ack_return)
+                    target_acks.remove(ack_return)
+                    log_normal("[recv ack] " + str(ack_return))
 
             except (ValueError, KeyError, TypeError):
                 log_error("[recv corrupt packet]")
