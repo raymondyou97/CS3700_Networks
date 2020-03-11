@@ -14,7 +14,7 @@ def log_normal(string):
     # redirect print output to stdout
     # this should be sys.stdout but dunno why its not working. fk it for now
     print >> sys.stderr, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
-  
+
 # for logging to stderr
 def log_error(string):
     # redirect print output to stderr
@@ -56,14 +56,14 @@ def send_ack_msg(sequence, data):
     log_normal("[sending] " + msg)
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
-    else:   
-        log_normal("[sent] " + str(sequence + len(data))) 
+    else:
+        log_normal("[sent] " + str(sequence + len(data)))
 
 def process_data(packet):
     global last_ack # to allow mutation in a local context
-  
+
     sequence, data, end_of_file_flag, _ = packet
-  
+
     # done if EOF found
     if end_of_file_flag:
         log_normal("[completed]")
@@ -78,13 +78,15 @@ def process_data(packet):
     received_sequences.append(sequence)
 
     current_sequence = None
+
     # got data, add to mapping and update next sequence to new sequence
     if data:
         msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
         log_normal(msg)
-        sequence_packet_map[sequence] = packet 
+        sequence_packet_map[sequence] = packet
         current_sequence = sequence
     
+    # print out the data to STDOUT in-order
     while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
         packet = sequence_packet_map.get(current_sequence)[1]
         sys.stdout.write(packet)
