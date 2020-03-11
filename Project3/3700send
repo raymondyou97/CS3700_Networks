@@ -64,55 +64,54 @@ def send_next_packet():
                 log_error("[error] unable to fully send packet")
             else:
                 global sequence_packet_map
-                sequence_packet_map[sequence_num] = (packet, len(data))
+                tupl = (packet, len(data))
+                sequence_packet_map[sequence_num] = tupl
                 log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
         else:
             if w == 0:
                 return False
     return True
 
-def resend_packet(seq):
+def resend_packet(sequence):
     global sequence_packet_map
-    (to_resend, size) = sequence_packet_map[seq]
-    if sock.sendto(to_resend, dest) < len(to_resend):
+    (data, size) = sequence_packet_map[sequence]
+    if sock.sendto(data, dest) < len(data):
         log_error("[error] unable to fully send packet")
     else:
-        log_normal("[send data] " + str(seq) + " (" + str(size) + ")")
+        log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
+# initialize the permanent loop that reads from STDIN
 packet_data = read_stdin()
 
-# Send first packet
+# first, send the first packet
 send_next_packet()
 
-# Now read in data, send packets
+# main loop where the 'sending logic' happens
 while True:
-    expected_acks = []
-    seq = sequence_num
+    target_acks = []
+    sequence_temp = sequence_num
 
     for i in range(window_size):
-        if seq not in expected_acks and seq not in acks_sent:
-            expected_acks.append(seq)
-        packet = sequence_packet_map.get(seq)
-        prev_packet = sequence_packet_map.get(seq - packet[1], None)
-        if not prev_packet:
+        if sequence_temp not in target_acks and sequence_temp not in acks_sent:
+            target_acks.append(sequence_temp)
+        packet = sequence_packet_map.get(sequence_temp)
+        prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
+        if prev_packet is not None:
             break
-        seq = seq - packet[1]
+        sequence_temp = sequence_temp - packet[1]
 
-    log_normal(str(expected_acks))
+    log_normal(str(target_acks))
 
     while True:
-        if len(expected_acks) == 0:
+        if len(target_acks) == 0:
             break
 
         result = None
         try:
             result = sock.recvfrom(1500)
         except:
-            if len(expected_acks) > (window_size / 2):
-                log_error("uhoh")
-            for seq in expected_acks:
-                resend_packet(seq)
-            continue
+            for sequence_temp in target_acks:
+                resend_packet(sequence_temp)
 
         if result:
             (data, addr) = result
@@ -120,9 +119,9 @@ while True:
                 decoded = json.loads(data)
                 ack = decoded['ack']
 
-                if ack in expected_acks:
+                if ack in target_acks:
                     acks_sent.append(ack)
-                    expected_acks.remove(ack)
+                    target_acks.remove(ack)
                     log_normal("[recv ack] " + str(ack))
 
             except (ValueError, KeyError, TypeError):
