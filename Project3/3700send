@@ -9,10 +9,10 @@ import json
 import struct
 
 MSG_SIZE = 1500
-DATA_SIZE = 1400 
-TIMEOUT = 1.2 
+DATA_SIZE = 1400
+TIMEOUT = 1.2
 SEQUENCE = 0
-WINDOW = 100 
+WINDOW = 100
 DATA = ""
 PACKETS = {}
 SENT = []
@@ -25,7 +25,7 @@ UDP_PORT = int(IP_PORT[IP_PORT.find(":")+1:])
 dest = (UDP_IP, UDP_PORT)
 
 # Set up the socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(TIMEOUT)
 
 def log(string):
@@ -38,33 +38,33 @@ def read_all_sys_in():
   while True:
     more = sys.stdin.read(DATA_SIZE)
     if len(more) < 1:
-      return data 
+      return data
     data += more
 
 DATA = read_all_sys_in()
 
 def send_next_packet():
   global SEQUENCE
-  global DATA 
+  global DATA
   global WINDOW
-  global PACKETS 
+  global PACKETS
   global S
 
   for i in range(WINDOW):
     data = DATA[:DATA_SIZE]
-   
+
     if len(data) < 1:
       return i != 0
 
-    DATA = DATA[DATA_SIZE:] 
+    DATA = DATA[DATA_SIZE:]
     packet = S.pack(SEQUENCE, data, False, WINDOW)
     assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
-    
+
     SEQUENCE += len(data)
     if sock.sendto(packet, dest) < len(packet):
       log("[error] unable to fully send packet")
-    else: 
-      PACKETS[SEQUENCE] = (packet, len(data)) 
+    else:
+      PACKETS[SEQUENCE] = (packet, len(data))
       log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
   return True
 
@@ -82,65 +82,61 @@ send_next_packet()
 # Now read in data, send packets
 while True:
   log("ABOUT TO SLEEP")
-  
-  expected_acks = [] 
+
+  expected_acks = []
   seq = SEQUENCE
 
   for i in range(WINDOW):
     if seq not in expected_acks and seq not in SENT:
       expected_acks.append(seq)
-    packet = PACKETS.get(seq) 
-    prev_packet = PACKETS.get(seq - packet[1], None) 
+    packet = PACKETS.get(seq)
+    prev_packet = PACKETS.get(seq - packet[1], None)
     if not prev_packet:
-      break    
+      break
     seq = seq - packet[1]
-  
+
   log(str(expected_acks))
-  
+
   while True:
     if len(expected_acks) == 0:
       break
-   
-    result = None 
+
+    result = None
     try:
       result = sock.recvfrom(MSG_SIZE)
     except:
       if len(expected_acks) > (WINDOW / 2):
-        log("uhoh")#WINDOW = max((WINDOW / 2), 1) 
+        log("uhoh")#WINDOW = max((WINDOW / 2), 1)
       for seq in expected_acks:
-        resend_packet(seq) 
-      continue   
+        resend_packet(seq)
+      continue
 
     if result:
       (data, addr) = result
       try:
         decoded = json.loads(data)
         ack = decoded['ack']
-      
+
         if ack in SENT:
           TIMEOUT = TIMEOUT + 1
-        
+
         if ack in expected_acks:
-          #if expected_acks.index(ack) > (len(expected_acks) / 2) - 1:
-          #  for i in range(expected_acks.index(ack)):
-          #    resend_packet(expected_acks[i])
           SENT.append(ack)
           expected_acks.remove(ack)
           log("[recv ack] " + str(ack))
-        
+
       except (ValueError, KeyError, TypeError):
         log("[recv corrupt packet]")
     else:
       log("[error] timeout")
       sys.exit(-1)
-  
-  WINDOW = WINDOW * 2 
+
+  WINDOW = WINDOW * 2
   # Try to send next packet; break if no more data
   if (not send_next_packet()):
     break
 
-log("send fin this btch")
-for i in range(10):  
+for i in range(10):
   fin = S.pack(SEQUENCE, "", True, WINDOW)
   sock.sendto(fin, dest)
 
