@@ -51,23 +51,22 @@ def read_stdin():
 def send_packet():
     for w in range(window_size):
         data = packet_data[:1400]
-        packet_size = len(data)
 
-        if packet_size > 0:
+        if len(data) > 0:
             global sequence_num
             global packet_data
             packet_data = packet_data[1400:]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
             assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
-            sequence_num += packet_size
+            sequence_num += len(data)
             if sock.sendto(packet, dest) < len(packet):
                 log_error("[error] unable to fully send packet")
             else:
                 global sequence_packet_map
-                tupl = (packet, packet_size)
+                tupl = (packet, len(data))
                 sequence_packet_map[sequence_num] = tupl
-                log_normal("[send data] {} ({})".format(str(sequence_num), str(packet_size)))
+                log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
         else:
             if w == 0:
                 return False
@@ -93,8 +92,8 @@ while True:
     sequence_temp = sequence_num
 
     for w in range(window_size):
-        ack_flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
-        if ack_flag:
+        flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
+        if flag:
             target_acks.append(sequence_temp)
         packet = sequence_packet_map.get(sequence_temp, None)
         prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
