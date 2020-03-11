@@ -42,7 +42,6 @@ my_socket = setup_socket()
 
 # Get port we bound to
 udp_port = my_socket.getsockname()[1]
-log_normal("[bound] {}".format(str(udp_port)))
 
 # deconstruct the C struct received
 def unpack_data(data):
@@ -113,9 +112,9 @@ def process_data(packet):
 
     deliver_ack(sequence, data)
 
+log_normal("[bound] {}".format(str(udp_port)))
 # main loop where the 'receiving logic' happens
 while True:
-    log_normal("[bound] {}".format(str(udp_port)))
     result = my_socket.recvfrom(1500)
     # If nothing is ready, we hit the timeout
     if result:
