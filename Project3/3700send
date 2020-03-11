@@ -134,11 +134,13 @@ while True:
 
     window_size = window_size * 2
     # Try to send next packet; break if no more data
-    if not send_packet():
+    success_or_nah = send_packet()
+    if not success_or_nah:
         break
 
+# send 'last termination packets' before ending gracefully
 for w in range(10):
-    fin = packet_struct.pack(sequence_num, "", True, window_size)
-    sock.sendto(fin, dest)
+    last_packet = packet_struct.pack(sequence_num, "", True, window_size)
+    sock.sendto(last_packet, dest)
 
 sys.exit(0)
