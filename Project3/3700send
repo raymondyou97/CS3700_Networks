@@ -70,8 +70,7 @@ def send_next_packet():
                 sequence_packet_map[sequence_num] = (msg, len(data))
                 log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
         else:
-            flag = 0 == x
-            return not flag
+            return x != 0
     return True
 
 def resend_packet(seq):
