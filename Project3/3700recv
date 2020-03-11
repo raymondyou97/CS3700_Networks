@@ -70,6 +70,8 @@ def termination_handler(flag):
         return
 
 def print_stdout_in_order(current_sequence, last_ack):
+    global last_ack # to allow mutation in a local context
+    
     while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
         packet = sequence_packet_map.get(current_sequence)[1]
         sys.stdout.write(packet)
@@ -77,8 +79,6 @@ def print_stdout_in_order(current_sequence, last_ack):
         current_sequence = current_sequence + len(packet)
 
 def process_data(packet):
-    global last_ack # to allow mutation in a local context
-
     sequence, data, end_of_file_flag, _ = packet
 
     # done if EOF found
