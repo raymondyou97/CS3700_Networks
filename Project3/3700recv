@@ -69,16 +69,16 @@ def termination_handler(flag):
     else:
         return
 
-def print_stdout_in_order(current_sequence, last_ack):
-    global last_ack # to allow mutation in a local context
-    
-    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
-        packet = sequence_packet_map.get(current_sequence)[1]
-        sys.stdout.write(packet)
-        last_ack = last_ack + len(packet)
-        current_sequence = current_sequence + len(packet)
+def process_data_helper(data, sequence, current_sequence):
+    if data is not None:
+        msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
+        log_normal(msg)
+        sequence_packet_map[sequence] = packet
+        current_sequence = sequence
 
 def process_data(packet):
+    global last_ack # to allow mutation in a local context
+
     sequence, data, end_of_file_flag, _ = packet
 
     # done if EOF found
@@ -95,14 +95,14 @@ def process_data(packet):
     current_sequence = None
 
     # got data, add to mapping and update next sequence to new sequence
-    if data:
-        msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
-        log_normal(msg)
-        sequence_packet_map[sequence] = packet
-        current_sequence = sequence
+    process_data_helper(data, sequence, current_sequence)
 
     # print out the data to STDOUT in-order
-    print_stdout_in_order(current_sequence, last_ack)
+    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
+        packet = sequence_packet_map.get(current_sequence)[1]
+        sys.stdout.write(packet)
+        last_ack = last_ack + len(packet)
+        current_sequence = current_sequence + len(packet)
 
     send_ack_msg(sequence, data)
 
