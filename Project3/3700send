@@ -46,7 +46,7 @@ dest = (udp_ip, udp_port)
 # Set up the socket
 sock = setup_socket()
 
-# Retrieve data from STDIN
+# Continually pull data from STDIN
 def read_stdin():
     final_data = ""
     while True:
@@ -89,6 +89,7 @@ def resend_packet(sequence):
     else:
         log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
+# shift our window size by one to the right
 def shift_window():
     global window_size
     # log_normal("[info] window shifted by 1")
@@ -102,9 +103,11 @@ def iterate_window(sequence_num):
         if flag:
             target_acks.append(sequence_num)
         global sequence_packet_map
+        # get info for the current packet and previous packet
         packet = sequence_packet_map.get(sequence_num, None)
         previous_sequence = sequence_num - packet[1]
         previous_packet = sequence_packet_map.get(previous_sequence, None)
+        # if previous packet fails, break out of window loop
         if not previous_packet:
             break
         sequence_num = previous_sequence
@@ -116,7 +119,7 @@ def final_attempt():
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         sock.sendto(last_packet, dest)
 
-# initialize the permanent loop that reads from STDIN
+# initialize the contiual loop that reads from STDIN
 packet_data = read_stdin()
 
 # first, send the first packet
