@@ -41,7 +41,7 @@ sock = setup_socket()
 udp_port = sock.getsockname()[1]
 log_normal("[bound] " + str(udp_port))
 
-`# unpacks the C struct into a Python tuple
+# unpacks the C struct into a Python tuple
 def unpack_data(data):
     parts = packet.unpack(data)
     data_spt = parts[1].split("\x00")[0]
