@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
+import json
+import datetime
 import sys
 import time
-import datetime
 import select
-import json
 
 from socket import socket, AF_INET, SOCK_DGRAM
 from struct import Struct
