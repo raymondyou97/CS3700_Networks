@@ -58,9 +58,7 @@ def send_next_packet():
     for i in range(window_size):
         data = packet_data[:1400]
 
-        if len(data) < 1:
-            return i != 0
-        else:
+        if len(data) > 1:
             packet_data = packet_data[1400:]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
             assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
@@ -71,6 +69,8 @@ def send_next_packet():
             else:
                 sequence_packet_map[sequence_num] = (packet, len(data))
                 log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
+        else:
+            return i != 0
     return True
 
 def resend_packet(seq):
