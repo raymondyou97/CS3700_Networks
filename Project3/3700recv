@@ -12,7 +12,7 @@ from struct import Struct
 # for logging to stdout
 def log_normal(string):
     # redirect print output to stdout
-    print datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n"
+    sys.stdout.write("TEST")
   
 # for logging to stderr
 def log_error(string):
