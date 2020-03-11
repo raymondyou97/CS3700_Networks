@@ -44,7 +44,7 @@ udp_port = int(ip_port[ip_port.find(":")+1:])
 dest = (udp_ip, udp_port)
 
 # Set up the socket
-my_socket = setup_socket()
+sock = setup_socket()
 
 # Continually pull data from STDIN
 def read_stdin():
@@ -68,7 +68,7 @@ def send_packet():
             packet = packet_struct.pack(sequence_num, data, False, window_size)
 
             sequence_num += len(data)
-            if my_socket.sendto(packet, dest) < len(packet):
+            if sock.sendto(packet, dest) < len(packet):
                 log_error("[error] unable to fully send packet")
             else:
                 global sequence_packet_map
@@ -84,7 +84,7 @@ def send_packet():
 def resend_packet(sequence):
     global sequence_packet_map
     (data, size) = sequence_packet_map[sequence]
-    if my_socket.sendto(data, dest) < len(data):
+    if sock.sendto(data, dest) < len(data):
         log_error("[error] unable to fully send packet")
     else:
         log_normal("[send data] {} ({})".format(str(sequence), str(size)))
@@ -117,7 +117,7 @@ def iterate_window(sequence_num):
 def final_attempt():
     for w in range(8):
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
-        my_socket.sendto(last_packet, dest)
+        sock.sendto(last_packet, dest)
 
 # initialize the contiual loop that reads from STDIN
 packet_data = read_stdin()
@@ -135,7 +135,7 @@ while True:
         result = None
         try:
             # receive data from the receiver
-            result = my_socket.recvfrom(1500)
+            result = sock.recvfrom(1500)
         except:
             # resend packets that weren't received by the receiver
             for sequence_temp in target_acks:
