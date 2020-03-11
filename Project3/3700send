@@ -69,75 +69,75 @@ def send_next_packet():
     return True
 
 def resend_packet(seq):
-  global PACKETS
-  (to_resend, size) = PACKETS[seq]
-  if sock.sendto(to_resend, dest) < len(to_resend):
-    log("[error] unable to fully send packet")
-  else:
-    log("[send data] " + str(seq) + " (" + str(size) + ")")
+    global PACKETS
+    (to_resend, size) = PACKETS[seq]
+    if sock.sendto(to_resend, dest) < len(to_resend):
+        log("[error] unable to fully send packet")
+    else:
+        log("[send data] " + str(seq) + " (" + str(size) + ")")
 
 # Send first packet
 send_next_packet()
 
 # Now read in data, send packets
 while True:
-  log("ABOUT TO SLEEP")
+    log("ABOUT TO SLEEP")
 
-  expected_acks = []
-  seq = SEQUENCE
+    expected_acks = []
+    seq = SEQUENCE
 
-  for i in range(WINDOW):
-    if seq not in expected_acks and seq not in SENT:
-      expected_acks.append(seq)
-    packet = PACKETS.get(seq)
-    prev_packet = PACKETS.get(seq - packet[1], None)
-    if not prev_packet:
-      break
-    seq = seq - packet[1]
+    for i in range(WINDOW):
+        if seq not in expected_acks and seq not in SENT:
+            expected_acks.append(seq)
+        packet = PACKETS.get(seq)
+        prev_packet = PACKETS.get(seq - packet[1], None)
+        if not prev_packet:
+            break
+        seq = seq - packet[1]
 
-  log(str(expected_acks))
+    log(str(expected_acks))
 
-  while True:
-    if len(expected_acks) == 0:
-      break
+    while True:
+        if len(expected_acks) == 0:
+            break
 
-    result = None
-    try:
-      result = sock.recvfrom(MSG_SIZE)
-    except:
-      if len(expected_acks) > (WINDOW / 2):
-        log("uhoh")#WINDOW = max((WINDOW / 2), 1)
-      for seq in expected_acks:
-        resend_packet(seq)
-      continue
+        result = None
+        try:
+            result = sock.recvfrom(MSG_SIZE)
+        except:
+            if len(expected_acks) > (WINDOW / 2):
+                log("uhoh")#WINDOW = max((WINDOW / 2), 1)
+            for seq in expected_acks:
+                resend_packet(seq)
+            continue
 
-    if result:
-      (data, addr) = result
-      try:
-        decoded = json.loads(data)
-        ack = decoded['ack']
+        if result:
+            (data, addr) = result
+            try:
+                decoded = json.loads(data)
+                ack = decoded['ack']
 
-        if ack in SENT:
-          TIMEOUT = TIMEOUT + 1
+                if ack in SENT:
+                    TIMEOUT = TIMEOUT + 1
 
-        if ack in expected_acks:
-          SENT.append(ack)
-          expected_acks.remove(ack)
-          log("[recv ack] " + str(ack))
+                if ack in expected_acks:
+                    SENT.append(ack)
+                    expected_acks.remove(ack)
+                    log("[recv ack] " + str(ack))
 
-      except (ValueError, KeyError, TypeError):
-        log("[recv corrupt packet]")
-    else:
-      log("[error] timeout")
-      sys.exit(-1)
+        except (ValueError, KeyError, TypeError):
+            log("[recv corrupt packet]")
+        else:
+            log("[error] timeout")
+            sys.exit(-1)
 
-  WINDOW = WINDOW * 2
-  # Try to send next packet; break if no more data
-  if (not send_next_packet()):
-    break
+    WINDOW = WINDOW * 2
+    # Try to send next packet; break if no more data
+    if (not send_next_packet()):
+        break
 
 for i in range(10):
-  fin = S.pack(SEQUENCE, "", True, WINDOW)
-  sock.sendto(fin, dest)
+    fin = S.pack(SEQUENCE, "", True, WINDOW)
+    sock.sendto(fin, dest)
 
 sys.exit(0)
