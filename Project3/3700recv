@@ -46,8 +46,11 @@ log_normal("[bound] " + str(udp_port))
 # deconstruct the C struct received
 def unpack_data(data):
     parts = packet.unpack(data)
+    sequence = parts[0]
     data_spt = parts[1].split("\x00")[0]
-    return (parts[0], data_spt, parts[2], parts[3])
+    eof = parts[2]
+    rest = parts[3]
+    return (sequence, data_spt, eof, rest)
 
 # send back an ack to the sender
 def send_ack_msg(sequence, data):
@@ -59,15 +62,20 @@ def send_ack_msg(sequence, data):
     else:
         log_normal("[sent] " + str(sequence + len(data)))
 
+def termination_handler(flag):
+    if flag:
+        log_normal("[completed]")
+        sys.exit(0)
+    else:
+        return
+
 def process_data(packet):
     global last_ack # to allow mutation in a local context
 
     sequence, data, end_of_file_flag, _ = packet
 
     # done if EOF found
-    if end_of_file_flag:
-        log_normal("[completed]")
-        sys.exit(0)
+    termination_handler(end_of_file_flag)
 
     # we have the given sequence, send back an ack
     if sequence in received_sequences:
