@@ -89,19 +89,17 @@ send_packet()
 # main loop where the 'sending logic' happens
 while True:
     target_acks = []
-    sequence_temp = sequence_num
 
+    # iterate through window to get packet and target acks
     for w in range(window_size):
-        flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
+        flag = (sequence_num not in target_acks) and (sequence_num not in acks_sent)
         if flag:
-            target_acks.append(sequence_temp)
-        packet = sequence_packet_map.get(sequence_temp, None)
-        prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
+            target_acks.append(sequence_num)
+        packet = sequence_packet_map.get(sequence_num, None)
+        prev_packet = sequence_packet_map.get(sequence_num - packet[1], None)
         if not prev_packet:
             break
-        sequence_temp = sequence_temp - packet[1]
-
-    log_normal(str(target_acks))
+        sequence_num = sequence_num - packet[1]
 
     while True:
         if len(target_acks) == 0:
@@ -111,8 +109,8 @@ while True:
         try:
             result = sock.recvfrom(1500)
         except:
-            for sequence_temp in target_acks:
-                resend_packet(sequence_temp)
+            for sequence_num in target_acks:
+                resend_packet(sequence_num)
             continue
 
         if result:
@@ -121,6 +119,7 @@ while True:
                 decoded = json.loads(data)
                 ack = decoded['ack']
 
+                # add the acknowledgement to relevant lists to keep track
                 if ack in target_acks:
                     acks_sent.append(ack)
                     target_acks.remove(ack)
@@ -132,15 +131,18 @@ while True:
             log_error("[error] timeout")
             sys.exit(-1)
 
-    window_size = window_size * 2
-    # Try to send next packet; break if no more data
+    # shift window to right
+    window_size += 1
+
+    # send packet, break if done
     success_or_nah = send_packet()
     if not success_or_nah:
         break
 
 # send 'last termination packets' before ending gracefully
-for w in range(10):
+for w in range(7):
     last_packet = packet_struct.pack(sequence_num, "", True, window_size)
     sock.sendto(last_packet, dest)
 
+log_normal("[completed]")
 sys.exit(0)
