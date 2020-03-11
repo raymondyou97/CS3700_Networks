@@ -48,7 +48,7 @@ def read_stdin():
         else:
             return final_data
 
-def send_next_packet():
+def send_packet():
     for w in range(window_size):
         data = packet_data[:1400]
 
@@ -84,19 +84,20 @@ def resend_packet(sequence):
 packet_data = read_stdin()
 
 # first, send the first packet
-send_next_packet()
+send_packet()
 
 # main loop where the 'sending logic' happens
 while True:
     target_acks = []
     sequence_temp = sequence_num
 
-    for i in range(window_size):
-        if sequence_temp not in target_acks and sequence_temp not in acks_sent:
+    for w in range(window_size):
+        flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
+        if flag:
             target_acks.append(sequence_temp)
-        packet = sequence_packet_map.get(sequence_temp)
+        packet = sequence_packet_map.get(sequence_temp, None)
         prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
-        if not prev_packet:
+        if prev_packet is not None:
             break
         sequence_temp = sequence_temp - packet[1]
 
@@ -133,10 +134,10 @@ while True:
 
     window_size = window_size * 2
     # Try to send next packet; break if no more data
-    if (not send_next_packet()):
+    if not send_packet():
         break
 
-for i in range(10):
+for w in range(10):
     fin = packet_struct.pack(sequence_num, "", True, window_size)
     sock.sendto(fin, dest)
 
