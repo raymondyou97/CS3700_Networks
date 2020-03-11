@@ -94,12 +94,11 @@ def process_data(packet):
         current_sequence = sequence
 
     # print out the data to STDOUT in-order
-    while sequence_packet_map.get(current_sequence, None) 
-        if last_ack == current_sequence:
-            packet = sequence_packet_map.get(current_sequence)[1]
-            sys.stdout.write(packet)
-            last_ack = last_ack + len(packet)
-            current_sequence = current_sequence + len(packet)
+    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
+        packet = sequence_packet_map.get(current_sequence)[1]
+        sys.stdout.write(packet)
+        last_ack = last_ack + len(packet)
+        current_sequence = current_sequence + len(packet)
 
     send_ack_msg(sequence, data)
 
