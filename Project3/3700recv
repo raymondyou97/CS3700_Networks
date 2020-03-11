@@ -12,7 +12,8 @@ from struct import Struct
 # for logging to stdout
 def log_normal(string):
     # redirect print output to stdout
-    sys.stdout.write("TEST")
+    # this should be sys.stdout but dunno why its not working. fk it for now
+    print >> sys.stderr, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
   
 # for logging to stderr
 def log_error(string):
@@ -28,8 +29,11 @@ def setup_socket():
 
 # struct of int, char[] of length 1400, boolean, int
 packet = Struct('I 1400s ? I')
+# mapping of packet sequences
 sequence_packet_map = {}
+# list of sequences
 received_sequences = []
+# last ack or rather the ack we expect back from sender
 last_ack = 0
 
 # Set up the socket
@@ -41,16 +45,17 @@ log_normal("[bound] " + str(udp_port))
 
 def unpack_data(data):
     parts = packet.unpack(data)
-    return (parts[0], parts[1].split("\x00")[0], parts[2], parts[3])
+    data_spt = parts[1].split("\x00")[0]
+    return (parts[0], data_spt, parts[2], parts[3])
 
 def send_ack_msg(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
-    log_error("ABOUT TO SEND " + msg)
+    log_normal("[sending] " + msg)
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:   
-        log_error("send ack " + str(sequence + len(data))) 
+        log_normal("[sent] " + str(sequence + len(data))) 
 
 def process_data(packet):
     global last_ack
@@ -58,8 +63,8 @@ def process_data(packet):
     sequence, data, end_of_file_flag, _ = packet
   
     if end_of_file_flag:
-        log_error("[completed, eof reached]")
-        log_error("[final received data] " + str(sequence_packet_map))
+        log_normal("[completed, EOF reached]")
+        log_normal("[final received data] " + str(sequence_packet_map))
         sys.exit(0)
 
     if sequence in received_sequences:
@@ -72,7 +77,7 @@ def process_data(packet):
     # else we put it in the buffer
 
     if data:
-        log_error("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
+        log_normal("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
         # print if the correct next order packet has arrived
         sequence_packet_map[sequence] = packet 
         next_seq = sequence
