@@ -89,16 +89,18 @@ send_packet()
 # main loop where the 'sending logic' happens
 while True:
     target_acks = []
+    sequence_temp = sequence_num
 
     for w in range(window_size):
-        flag = (sequence_num not in target_acks) and (sequence_num not in acks_sent)
+        flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
         if flag:
-            target_acks.append(sequence_num)
-        packet = sequence_packet_map.get(sequence_num, None)
-        prev_packet = sequence_packet_map.get(sequence_num - packet[1], None)
-        if not prev_packet:
+            target_acks.append(sequence_temp)
+        packet = sequence_packet_map.get(sequence_temp, None)
+        previous_sequence = sequence_temp - packet[1]
+        previous_packet = sequence_packet_map.get(previous_sequence, None)
+        if not previous_packet:
             break
-        sequence_num = sequence_num - packet[1]
+        sequence_temp = previous_sequence
 
     log_normal(str(target_acks))
 
@@ -110,8 +112,8 @@ while True:
         try:
             result = sock.recvfrom(1500)
         except:
-            for sequence_num in target_acks:
-                resend_packet(sequence_num)
+            for sequence_temp in target_acks:
+                resend_packet(sequence_temp)
             continue
 
         if result:
