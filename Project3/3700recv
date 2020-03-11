@@ -85,7 +85,7 @@ def process_data(packet):
         log_normal(msg)
         sequence_packet_map[sequence] = packet
         current_sequence = sequence
-    
+
     # print out the data to STDOUT in-order
     while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
         packet = sequence_packet_map.get(current_sequence)[1]
