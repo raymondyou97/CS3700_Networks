@@ -59,12 +59,12 @@ def read_stdin():
 # sends the packet
 def send_packet():
     for w in range(window_size):
-        data = packet_data[:packet_data_length]
+        data = packet_data[0:packet_data_length]
 
         if len(data) > 0:
             global sequence_num
             global packet_data
-            packet_data = packet_data[packet_data_length:]
+            packet_data = packet_data[packet_data_length:len(packet_data)]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
 
             sequence_num += len(data)
@@ -74,7 +74,7 @@ def send_packet():
                 global sequence_packet_map
                 tupl = (packet, len(data))
                 sequence_packet_map[sequence_num] = tupl
-                log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
+                log_normal("[send data] {} ({})".format(str(sequence_num), str(len(data))))
         else:
             if w == 0:
                 return False
@@ -150,7 +150,7 @@ while True:
                 if my_ack in target_acks:
                     target_acks.remove(my_ack)
                     acks_sent.append(my_ack)
-                    log_normal("[recv ack] " + str(my_ack))
+                    log_normal("[recv ack] {}".format(str(my_ack)))
             except (ValueError, KeyError, TypeError):
                 log_error("[recv corrupt packet]")
         else:

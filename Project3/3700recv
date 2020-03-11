@@ -40,7 +40,7 @@ sock = setup_socket()
 
 # Get port we bound to
 udp_port = sock.getsockname()[1]
-log_normal("[bound] " + str(udp_port))
+log_normal("[bound] {}".format(str(udp_port)))
 
 # deconstruct the C struct received
 def unpack_data(data):
@@ -56,11 +56,11 @@ def unpack_data(data):
 def deliver_ack(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
-    log_normal("[sending] " + msg)
+    log_normal("[sending] {}".format(msg))
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:
-        log_normal("[sent] " + str(sequence + len(data)))
+        log_normal("[sent] {}".format(str(sequence + len(data))))
 
 def termination_handler(flag):
     if flag:
