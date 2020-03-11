@@ -37,7 +37,11 @@ last_ack = 0
 # Set up the socket
 sock = setup_socket()
 
-# unpacks the C struct into a Python tuple
+# Get port we bound to
+udp_port = sock.getsockname()[1]
+log_normal("[bound] " + str(udp_port))
+
+`# unpacks the C struct into a Python tuple
 def unpack_data(data):
     parts = packet.unpack(data)
     data_spt = parts[1].split("\x00")[0]
@@ -84,11 +88,7 @@ def process_data(packet):
         next_seq = next_seq + len(to_write[1])
 
     # Send back an ack to the sender
-    send_ack_msg(sequence, data)
-
-# Get port we bound to
-udp_port = sock.getsockname()[1]
-log_normal("[bound] " + str(udp_port))
+    send_ack_msg(sequence, data)`
 
 # main loop where the 'receiving logic' happens
 while True:
