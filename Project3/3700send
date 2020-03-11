@@ -95,11 +95,12 @@ while True:
         flag = (sequence_num not in target_acks) and (sequence_num not in acks_sent)
         if flag:
             target_acks.append(sequence_num)
-        packet = sequence_packet_map.get(sequence_num, None)
-        prev_packet = sequence_packet_map.get(sequence_num - packet[1], None)
-        if not prev_packet:
+        current_packet = sequence_packet_map.get(sequence_num, None)
+        previous_sequence_num = sequence_num - current_packet[1]
+        previous_packet = sequence_packet_map.get(previous_sequence_num, None)
+        if not previous_packet:
             break
-        sequence_num = sequence_num - packet[1]
+        sequence_num = previous_sequence_num
 
     while True:
         if len(target_acks) == 0:
@@ -132,7 +133,7 @@ while True:
             sys.exit(-1)
 
     # shift window to right
-    window_size += 1
+    window_size *= 2
 
     # send packet, break if done
     success_or_nah = send_packet()
