@@ -17,8 +17,10 @@ def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
-# struct of int, char[] of length 1400, boolean, int
-packet_struct = Struct('I 1400s ? I')
+packet_data_length = 1500 - 100
+
+# struct of int, char[], boolean, int
+packet_struct = Struct("I {}s ? I".format(packet_data_length))
 # mapping of packet sequences
 sequence_packet_map = {}
 # starting sequence num
