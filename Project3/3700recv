@@ -98,11 +98,8 @@ def process_data(packet):
         if last_ack == current_sequence:
             packet = sequence_packet_map.get(current_sequence)[1]
             sys.stdout.write(packet)
-            last_ack += len(packet)
-            current_sequence += len(packet)
-        # else:
-        #     # tbd
-        #     continue
+            last_ack = last_ack + len(packet)
+            current_sequence = current_sequence + len(packet)
 
     send_ack_msg(sequence, data)
 
