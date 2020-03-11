@@ -51,22 +51,23 @@ def read_stdin():
 def send_packet():
     for w in range(window_size):
         data = packet_data[:1400]
+        packet_size = len(data)
 
-        if len(data) > 0:
+        if packet_size > 0:
             global sequence_num
             global packet_data
             packet_data = packet_data[1400:]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
             assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
-            sequence_num += len(data)
+            sequence_num += packet_size
             if sock.sendto(packet, dest) < len(packet):
                 log_error("[error] unable to fully send packet")
             else:
                 global sequence_packet_map
-                tupl = (packet, len(data))
+                tupl = (packet, packet_size)
                 sequence_packet_map[sequence_num] = tupl
-                log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
+                log_normal("[send data] {} ({})".format(str(sequence_num), str(packet_size)))
         else:
             if w == 0:
                 return False
@@ -74,11 +75,11 @@ def send_packet():
 
 def resend_packet(sequence):
     global sequence_packet_map
-    (data, size) = sequence_packet_map[sequence]
-    if sock.sendto(data, dest) < len(data):
+    (packet_data, packet_size) = sequence_packet_map[sequence]
+    if sock.sendto(packet_data, dest) < len(packet_data):
         log_error("[error] unable to fully send packet")
     else:
-        log_normal("[send data] {} ({})".format(str(sequence), str(size)))
+        log_normal("[send data] {} ({})".format(str(sequence), str(packet_size)))
 
 # initialize the permanent loop that reads from STDIN
 packet_data = read_stdin()
@@ -92,8 +93,8 @@ while True:
     sequence_temp = sequence_num
 
     for w in range(window_size):
-        flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
-        if flag:
+        ack_flag = (sequence_temp not in target_acks) and (sequence_temp not in acks_sent)
+        if ack_flag:
             target_acks.append(sequence_temp)
         packet = sequence_packet_map.get(sequence_temp, None)
         prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
@@ -132,13 +133,17 @@ while True:
             log_error("[error] timeout")
             sys.exit(-1)
 
+    # increase the window size
     window_size = window_size * 2
-    # Try to send next packet; break if no more data
-    if not send_packet():
+
+    # send next packet or get out of loop if it fails
+    success = send_packet():
+    if not success:
         break
 
+# send final packets before gracefully exiting
 for w in range(10):
-    fin = packet_struct.pack(sequence_num, "", True, window_size)
-    sock.sendto(fin, dest)
+    end_packet = packet_struct.pack(sequence_num, "", True, window_size)
+    sock.sendto(end_packet, dest)
 
 sys.exit(0)
