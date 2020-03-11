@@ -19,15 +19,15 @@ def log_error(string):
 
 sequence = 0
 window_size = 100
-packet_data = None
+DATA = None
 sequence_packet_map = {}
-acks_sent = []
+SENT = []
 packet = Struct('i 1400s ? i')
 
-ip_port = sys.argv[1]
-udp_ip = IP_PORT[0:IP_PORT.find(":")]
-udp_port = int(IP_PORT[IP_PORT.find(":")+1:])
-dest = (udp_ip, udp_port)
+IP_PORT = sys.argv[1]
+UDP_IP = IP_PORT[0:IP_PORT.find(":")]
+UDP_PORT = int(IP_PORT[IP_PORT.find(":")+1:])
+dest = (UDP_IP, UDP_PORT)
 
 # connect to socket and setup attributes
 def setup_socket():
@@ -50,18 +50,18 @@ def read_stdin():
 
 def send_next_packet():
     global sequence
-    global packet_data
+    global DATA
     global window_size
     global sequence_packet_map
     global packet
 
     for i in range(window_size):
-        data = packet_data[:1400]
+        data = DATA[:1400]
 
         if len(data) < 1:
             return i != 0
 
-        packet_data = packet_data[1400:]
+        DATA = DATA[1400:]
         packet = packet.pack(sequence, data, False, window_size)
         assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
@@ -81,7 +81,7 @@ def resend_packet(seq):
     else:
         log_normal("[send data] " + str(seq) + " (" + str(size) + ")")
 
-packet_data = read_stdin()
+DATA = read_stdin()
 
 # Send first packet
 send_next_packet()
@@ -94,7 +94,7 @@ while True:
     seq = sequence
 
     for i in range(window_size):
-        if seq not in expected_acks and seq not in acks_sent:
+        if seq not in expected_acks and seq not in SENT:
             expected_acks.append(seq)
         packet = sequence_packet_map.get(seq)
         prev_packet = sequence_packet_map.get(seq - packet[1], None)
@@ -125,7 +125,7 @@ while True:
                 ack = decoded['ack']
 
                 if ack in expected_acks:
-                    acks_sent.append(ack)
+                    SENT.append(ack)
                     expected_acks.remove(ack)
                     log_normal("[recv ack] " + str(ack))
 
