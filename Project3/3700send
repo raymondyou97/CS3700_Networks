@@ -18,7 +18,7 @@ def log_error(string):
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
 # struct of int, char[] of length 1400, boolean, int
-packet_struct = Struct('I 1400s I ?')
+packet_struct = Struct('I 1400s ? I')
 # mapping of packet sequences
 sequence_packet_map = {}
 # starting sequence num
@@ -64,7 +64,7 @@ def send_packet():
             global sequence_num
             global packet_data
             packet_data = packet_data[1400:]
-            packet = packet_struct.pack(sequence_num, data, window_size, False)
+            packet = packet_struct.pack(sequence_num, data, False, window_size)
             assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
             sequence_num += len(data)
@@ -108,7 +108,7 @@ def iterate_window(sequence_num):
 # send 'last termination packets' before ending gracefully
 def final_attempt():
     for w in range(8):
-        last_packet = packet_struct.pack(sequence_num, "", window_size, True)
+        last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         sock.sendto(last_packet, dest)
 
 # initialize the permanent loop that reads from STDIN
