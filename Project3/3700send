@@ -125,8 +125,8 @@ while True:
                     expected_acks.remove(ack)
                     log("[recv ack] " + str(ack))
 
-        except (ValueError, KeyError, TypeError):
-            log("[recv corrupt packet]")
+            except (ValueError, KeyError, TypeError):
+                log("[recv corrupt packet]")
         else:
             log("[error] timeout")
             sys.exit(-1)
