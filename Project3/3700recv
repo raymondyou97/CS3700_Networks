@@ -47,7 +47,8 @@ def unpack_data(data):
     data_spt = parts[1].split("\x00")[0]
     eof = parts[2]
     rest = parts[3]
-    return (sequence, data_spt, eof, rest)
+    tupl = (sequence, data_spt, eof, rest)
+    return tupl
 
 # send back an ack to the sender
 def send_ack_msg(sequence, data):
@@ -69,6 +70,7 @@ def termination_handler(flag):
 def process_data(packet):
     global last_ack # to allow mutation in a local context
 
+    # deconstruct packet
     sequence, data, end_of_file_flag, _ = packet
 
     # done if EOF found
@@ -92,11 +94,15 @@ def process_data(packet):
         current_sequence = sequence
 
     # print out the data to STDOUT in-order
-    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
-        packet = sequence_packet_map.get(current_sequence)[1]
-        sys.stdout.write(packet)
-        last_ack = last_ack + len(packet)
-        current_sequence = current_sequence + len(packet)
+    while sequence_packet_map.get(current_sequence, None) 
+        if last_ack == current_sequence:
+            packet = sequence_packet_map.get(current_sequence)[1]
+            sys.stdout.write(packet)
+            last_ack += len(packet)
+            current_sequence += len(packet)
+        else:
+            # tbd
+            continue
 
     send_ack_msg(sequence, data)
 
