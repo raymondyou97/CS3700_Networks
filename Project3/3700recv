@@ -26,11 +26,11 @@ def setup_socket():
     my_socket.settimeout(300000)
     return my_socket
 
+# struct of int, char[] of length 1400, boolean, int
+packet = Struct('I 1400s ? I')
 sequence_packet_map = {}
 received_sequences = []
 last_ack = 0
-# struct of int, char[] of length 1400, boolean, int
-packet = Struct('I 1400s ? I')
 
 # Set up the socket
 sock = setup_socket()
@@ -43,40 +43,40 @@ def unpack_data(data):
     parts = packet.unpack(data)
     return (parts[0], parts[1].split("\x00")[0], parts[2], parts[3])
 
-def send_ack(seq, data):
-    my_dict = {"ack": seq + len(data)}
+def send_ack(sequence, data):
+    my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
     log_error("ABOUT TO SEND " + msg)
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:   
-        log_error("send ack " + str(seq + len(data))) 
+        log_error("send ack " + str(sequence + len(data))) 
 
 def process_data(packet):
     global last_ack
   
-    seq, data, eof, _ = packet
+    sequence, data, end_of_file_flag, _ = packet
   
-    if seq in received_sequences:
-        send_ack(seq, data)
+    if sequence in received_sequences:
+        send_ack(sequence, data)
         return
   
     # If the EOF flag is set, exit
-    if eof:
+    if end_of_file_flag:
         log_error("[completed]")
         log_error(str(sequence_packet_map))
         sys.exit(0)
 
-    received_sequences.append(seq)
+    received_sequences.append(sequence)
 
-    # If there is data and seq = last acked, we accept it and print it out
+    # If there is data and sequence = last acked, we accept it and print it out
     # else we put it in the buffer
 
     if data:
-        log_error("[recv data] " + str(seq) + " (" + str(len(data)) + ")")
+        log_error("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
         # print if the correct next order packet has arrived
-        sequence_packet_map[seq] = packet 
-        next_seq = seq
+        sequence_packet_map[sequence] = packet 
+        next_seq = sequence
  
     while sequence_packet_map.get(next_seq, None) and last_ack == next_seq:
         to_write = sequence_packet_map.get(next_seq)
@@ -85,22 +85,25 @@ def process_data(packet):
         next_seq = next_seq + len(to_write[1])
 
     # Send back an ack to the sender
-    send_ack(seq, data)
+    send_ack(sequence, data)
 
-while True:
-    result = sock.recvfrom(1500)
+def main():
+    while True:
+        result = sock.recvfrom(1500)
 
-    # If nothing is ready, we hit the timeout
-    if result:
-        (data, addr) = result
+        # If nothing is ready, we hit the timeout
+        if result:
+            (data, addr) = result
 
-        try:
-            data_pts = unpack_data(data)
-            process_data(data_pts)
+            try:
+                data_pts = unpack_data(data)
+                process_data(data_pts)
 
-        except (ValueError, KeyError, TypeError) as e:
-            log_error("[recv corrupt packet]")
-            raise e
-    else:
-        log_error("[error] timeout")
-        sys.exit(-1)
+            except (ValueError, KeyError, TypeError) as e:
+                log_error("[recv corrupt packet]")
+                raise e
+        else:
+            log_error("[error] timeout")
+            sys.exit(-1)
+
+main()
