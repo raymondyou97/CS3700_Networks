@@ -49,14 +49,12 @@ def read_stdin():
             return final_data
 
 def send_next_packet():
-    global sequence_num
-    global packet_data
-    global sequence_packet_map
-
     for w in range(window_size):
         data = packet_data[:1400]
 
-        if len(data) > 1:
+        if len(data) > 0:
+            global sequence_num
+            global packet_data
             packet_data = packet_data[1400:]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
             assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
@@ -65,10 +63,12 @@ def send_next_packet():
             if sock.sendto(packet, dest) < len(packet):
                 log_error("[error] unable to fully send packet")
             else:
+                global sequence_packet_map
                 sequence_packet_map[sequence_num] = (packet, len(data))
                 log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
         else:
-            return w != 0
+            if w == 0:
+                return False
     return True
 
 def resend_packet(seq):
