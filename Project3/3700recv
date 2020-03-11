@@ -68,7 +68,7 @@ def termination_handler(flag):
         return
 
 def process_data(packet):
-    global received_sequences
+    global received_sequences # to allow mutation in a local context
     global last_ack # to allow mutation in a local context
 
     # deconstruct packet
@@ -94,13 +94,13 @@ def process_data(packet):
         sequence_packet_map[sequence] = packet
         current_sequence = sequence
 
-    same_flag = last_ack == current_sequence
-    # print out the data to STDOUT in-order
-    while sequence_packet_map.get(current_sequence, None) and same_flag:
-        packet = sequence_packet_map.get(current_sequence)[1]
-        sys.stdout.write(packet)
-        last_ack += len(packet)
-        current_sequence += len(packet)
+        same_flag = last_ack == current_sequence
+        # print out the data to STDOUT in-order
+        while sequence_packet_map.get(current_sequence, None) and same_flag:
+            packet = sequence_packet_map.get(current_sequence)[1]
+            sys.stdout.write(packet)
+            last_ack += len(packet)
+            current_sequence += len(packet)
 
     deliver_ack(sequence, data)
 
