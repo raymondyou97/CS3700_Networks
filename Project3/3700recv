@@ -37,7 +37,7 @@ sock = setup_socket()
 
 # Get port we bound to
 udp_port = sock.getsockname()[1]
-log_error("[bound] " + str(udp_port))
+log_normal("[bound] " + str(udp_port))
 
 def unpack_data(data):
     parts = packet.unpack(data)
