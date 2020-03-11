@@ -94,6 +94,12 @@ def iterate_window(sequence_num):
         sequence_num = previous_sequence
     return sequence_num
 
+# send 'last termination packets' before ending gracefully
+def final_attempt():
+    for w in range(10):
+        last_packet = packet_struct.pack(sequence_num, "", True, window_size)
+        sock.sendto(last_packet, dest)
+
 # initialize the permanent loop that reads from STDIN
 packet_data = read_stdin()
 
@@ -140,10 +146,7 @@ while True:
     if not success_or_nah:
         break
 
-# send 'last termination packets' before ending gracefully
-for w in range(10):
-    last_packet = packet_struct.pack(sequence_num, "", True, window_size)
-    sock.sendto(last_packet, dest)
+final_attempt()
 
 log_normal("[completed]")
 sys.exit(0)
