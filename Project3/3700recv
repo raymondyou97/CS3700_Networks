@@ -69,6 +69,13 @@ def termination_handler(flag):
     else:
         return
 
+def print_stdout_in_order(current_sequence, last_ack):
+    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
+        packet = sequence_packet_map.get(current_sequence)[1]
+        sys.stdout.write(packet)
+        last_ack = last_ack + len(packet)
+        current_sequence = current_sequence + len(packet)
+
 def process_data(packet):
     global last_ack # to allow mutation in a local context
 
@@ -95,11 +102,7 @@ def process_data(packet):
         current_sequence = sequence
 
     # print out the data to STDOUT in-order
-    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
-        packet = sequence_packet_map.get(current_sequence)[1]
-        sys.stdout.write(packet)
-        last_ack = last_ack + len(packet)
-        current_sequence = current_sequence + len(packet)
+    print_stdout_in_order(current_sequence, last_ack)
 
     send_ack_msg(sequence, data)
 
