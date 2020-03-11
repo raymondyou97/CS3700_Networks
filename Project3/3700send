@@ -17,13 +17,20 @@ def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
-sequence_num = 0
-window_size = 100
-packet_data = None
-sequence_packet_map = {}
-acks_sent = []
+# struct of int, char[] of length 1400, boolean, int
 packet_struct = Struct('I 1400s ? I')
+# mapping of packet sequences
+sequence_packet_map = {}
+# starting sequence num
+sequence_num = 0
+# our window size
+window_size = 100
+# current packet data
+packet_data = None
+# acks already sent out
+acks_sent = []
 
+# get the port the receiver opened up
 ip_port = sys.argv[1]
 udp_ip = ip_port[0:ip_port.find(":")]
 udp_port = int(ip_port[ip_port.find(":")+1:])
@@ -48,6 +55,7 @@ def read_stdin():
         else:
             return final_data
 
+# sends the packet
 def send_packet():
     for w in range(window_size):
         data = packet_data[:1400]
@@ -72,6 +80,7 @@ def send_packet():
                 return False
     return True
 
+# resends the packet based on sequence num
 def resend_packet(sequence):
     global sequence_packet_map
     (data, size) = sequence_packet_map[sequence]
@@ -80,6 +89,7 @@ def resend_packet(sequence):
     else:
         log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
+# iterate through the window size to for prerequistes steps
 def iterate_window(sequence_num):
     for w in range(window_size):
         flag = (sequence_num not in target_acks) and (sequence_num not in acks_sent)
@@ -96,7 +106,7 @@ def iterate_window(sequence_num):
 
 # send 'last termination packets' before ending gracefully
 def final_attempt():
-    for w in range(10):
+    for w in range(8):
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         sock.sendto(last_packet, dest)
 
@@ -110,37 +120,37 @@ send_packet()
 while True:
     target_acks = []
     sequence_temp = iterate_window(sequence_num)
-
     while True:
         if len(target_acks) == 0:
             break
-
         result = None
         try:
+            # receive data from the receiver
             result = sock.recvfrom(1500)
         except:
+            # resend packets that weren't received by the receiver
             for sequence_temp in target_acks:
                 resend_packet(sequence_temp)
             continue
-
         if result:
             (data, addr) = result
             try:
                 decoded = json.loads(data)
                 ack = decoded['ack']
-
+                # if ack has been received and acknowledged, we can conclude and clean this ack
                 if ack in target_acks:
                     acks_sent.append(ack)
                     target_acks.remove(ack)
                     log_normal("[recv ack] " + str(ack))
-
             except (ValueError, KeyError, TypeError):
                 log_error("[recv corrupt packet]")
         else:
             log_error("[error] timeout")
             sys.exit(-1)
 
-    window_size = window_size * 2
+    # shift window one unit to the right
+    window_size += 1
+
     # Try to send next packet; break if no more data
     success_or_nah = send_packet()
     if not success_or_nah:
