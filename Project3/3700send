@@ -11,11 +11,13 @@ def log_normal(string):
     # redirect print output to stdout
     # this should be sys.stdout but dunno why its not working. fk it for now
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+    sys.stderr.flush()
 
 # for logging to stderr
 def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+    sys.stderr.flush()
 
 # connect to socket and setup attributes
 def setup_socket():
