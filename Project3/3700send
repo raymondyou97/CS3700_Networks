@@ -29,44 +29,44 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(TIMEOUT)
 
 def log(string):
-  a = 1
-  sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+    a = 1
+    sys.stderr.write(datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
 #Read all of system STDIN
 def read_all_sys_in():
-  data = ""
-  while True:
-    more = sys.stdin.read(DATA_SIZE)
-    if len(more) < 1:
-      return data
-    data += more
+    data = ""
+    while True:
+        more = sys.stdin.read(DATA_SIZE)
+        if len(more) < 1:
+            return data
+        data += more
 
 DATA = read_all_sys_in()
 
 def send_next_packet():
-  global SEQUENCE
-  global DATA
-  global WINDOW
-  global PACKETS
-  global S
+    global SEQUENCE
+    global DATA
+    global WINDOW
+    global PACKETS
+    global S
 
-  for i in range(WINDOW):
-    data = DATA[:DATA_SIZE]
+    for i in range(WINDOW):
+        data = DATA[:DATA_SIZE]
 
-    if len(data) < 1:
-      return i != 0
+        if len(data) < 1:
+            return i != 0
 
-    DATA = DATA[DATA_SIZE:]
-    packet = S.pack(SEQUENCE, data, False, WINDOW)
-    assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
+        DATA = DATA[DATA_SIZE:]
+        packet = S.pack(SEQUENCE, data, False, WINDOW)
+        assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
-    SEQUENCE += len(data)
-    if sock.sendto(packet, dest) < len(packet):
-      log("[error] unable to fully send packet")
-    else:
-      PACKETS[SEQUENCE] = (packet, len(data))
-      log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
-  return True
+        SEQUENCE += len(data)
+        if sock.sendto(packet, dest) < len(packet):
+            log("[error] unable to fully send packet")
+        else:
+            PACKETS[SEQUENCE] = (packet, len(data))
+            log("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
+    return True
 
 def resend_packet(seq):
   global PACKETS
