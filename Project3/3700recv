@@ -25,7 +25,7 @@ def setup_socket():
     return my_socket
 
 # struct of int, char[] of length 1400, boolean, int
-packet = Struct('I 1400s ? I')
+packet_struct = Struct('I 1400s ? I')
 # mapping of packet sequences
 sequence_packet_map = {}
 # list of sequences
@@ -42,7 +42,7 @@ log_normal("[bound] " + str(udp_port))
 
 # deconstruct the C struct received
 def unpack_data(data):
-    parts = packet.unpack(data)
+    parts = packet_struct.unpack(data)
     sequence = parts[0]
     data_spt = parts[1].split("\x00")[0]
     eof = parts[2]

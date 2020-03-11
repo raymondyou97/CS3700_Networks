@@ -22,7 +22,7 @@ window_size = 100
 packet_data = None
 sequence_packet_map = {}
 acks_sent = []
-packet = Struct('I 1400s ? I')
+packet_struct = Struct('i 1400s ? i')
 
 ip_port = sys.argv[1]
 udp_ip = ip_port[0:ip_port.find(":")]
@@ -53,7 +53,7 @@ def send_next_packet():
     global packet_data
     global window_size
     global sequence_packet_map
-    global packet
+    global packet_struct
 
     for i in range(window_size):
         data = packet_data[:1400]
@@ -62,7 +62,7 @@ def send_next_packet():
             return i != 0
 
         packet_data = packet_data[1400:]
-        packet = packet.pack(sequence_num, data, False, window_size)
+        packet = packet_struct.pack(sequence_num, data, False, window_size)
         assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
         sequence_num += len(data)
@@ -141,7 +141,7 @@ while True:
         break
 
 for i in range(10):
-    fin = packet.pack(sequence_num, "", True, window_size)
+    fin = packet_struct.pack(sequence_num, "", True, window_size)
     sock.sendto(fin, dest)
 
 sys.exit(0)
