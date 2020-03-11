@@ -17,11 +17,9 @@ def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
-DATA_SIZE = 1400
-TIMEOUT = 1.2
 SEQUENCE = 0
 WINDOW = 100
-DATA = ""
+DATA = None
 PACKETS = {}
 SENT = []
 S = Struct('i 1400s ? i')
@@ -34,22 +32,23 @@ dest = (UDP_IP, UDP_PORT)
 # connect to socket and setup attributes
 def setup_socket():
     sock = socket(AF_INET, SOCK_DGRAM)
-    sock.settimeout(TIMEOUT)
+    sock.settimeout(1.2)
     return sock
 
 # Set up the socket
 sock = setup_socket()
 
-#Read all of system STDIN
-def read_all_sys_in():
-    data = ""
+# Retrieve data from STDIN
+def read_stdin():
+    final_data = ""
     while True:
-        more = sys.stdin.read(DATA_SIZE)
-        if len(more) < 1:
-            return data
-        data += more
+        intake = sys.stdin.read(1400)
+        if len(intake) > 1:
+            final_data += intake
+        else:
+            return final_data
 
-DATA = read_all_sys_in()
+DATA = read_stdin()
 
 def send_next_packet():
     global SEQUENCE
@@ -59,12 +58,12 @@ def send_next_packet():
     global S
 
     for i in range(WINDOW):
-        data = DATA[:DATA_SIZE]
+        data = DATA[:1400]
 
         if len(data) < 1:
             return i != 0
 
-        DATA = DATA[DATA_SIZE:]
+        DATA = DATA[1400:]
         packet = S.pack(SEQUENCE, data, False, WINDOW)
         assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
@@ -114,7 +113,7 @@ while True:
             result = sock.recvfrom(1500)
         except:
             if len(expected_acks) > (WINDOW / 2):
-                log_error("uhoh")#WINDOW = max((WINDOW / 2), 1)
+                log_error("uhoh")
             for seq in expected_acks:
                 resend_packet(seq)
             continue
