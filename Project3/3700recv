@@ -11,8 +11,8 @@ from struct import Struct
 
 # for logging to stdout
 def log_normal(string):
-    # redirect print output to stderr
-    print >> sys.stderr, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")`3`
+    # redirect print output to stdout
+    print >> sys.stdout, (datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
   
 # for logging to stderr
 def log_error(string):
@@ -37,7 +37,7 @@ sock = setup_socket()
 
 # Get port we bound to
 udp_port = sock.getsockname()[1]
-log_normal("[bound] " + str(udp_port))
+log_error("[bound] " + str(udp_port))
 
 def unpack_data(data):
     parts = packet.unpack(data)
@@ -46,11 +46,11 @@ def unpack_data(data):
 def send_ack_msg(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
-    log_normal("ABOUT TO SEND " + msg)
+    log_error("ABOUT TO SEND " + msg)
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:   
-        log_normal("send ack " + str(sequence + len(data))) 
+        log_error("send ack " + str(sequence + len(data))) 
 
 def process_data(packet):
     global last_ack
@@ -58,8 +58,8 @@ def process_data(packet):
     sequence, data, end_of_file_flag, _ = packet
   
     if end_of_file_flag:
-        log_normal("[completed, eof reached]")
-        log_normal("[final received data] " + str(sequence_packet_map))
+        log_error("[completed, eof reached]")
+        log_error("[final received data] " + str(sequence_packet_map))
         sys.exit(0)
 
     if sequence in received_sequences:
@@ -72,7 +72,7 @@ def process_data(packet):
     # else we put it in the buffer
 
     if data:
-        log_normal("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
+        log_error("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
         # print if the correct next order packet has arrived
         sequence_packet_map[sequence] = packet 
         next_seq = sequence
