@@ -87,9 +87,9 @@ def process_data(packet):
     current_sequence = None
 
     global last_ack # to allow mutation in a local context
-    
+
     # got data, add to mapping and update next sequence to new sequence
-    if data:
+    if data is not None:
         msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
         log_normal(msg)
         sequence_packet_map[sequence] = packet
@@ -102,6 +102,8 @@ def process_data(packet):
             sys.stdout.write(packet)
             last_ack += len(packet)
             current_sequence += len(packet)
+    else:
+        # log_error("ABORT?")
 
     deliver_ack(sequence, data)
 
