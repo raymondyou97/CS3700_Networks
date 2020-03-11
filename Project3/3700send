@@ -74,11 +74,11 @@ def send_packet():
 
 def resend_packet(sequence):
     global sequence_packet_map
-    (packet_data, packet_size) = sequence_packet_map[sequence]
-    if sock.sendto(packet_data, dest) < len(packet_data):
+    (data, size) = sequence_packet_map[sequence]
+    if sock.sendto(data, dest) < len(data):
         log_error("[error] unable to fully send packet")
     else:
-        log_normal("[send data] {} ({})".format(str(sequence), str(packet_size)))
+        log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
 # initialize the permanent loop that reads from STDIN
 packet_data = read_stdin()
@@ -140,7 +140,6 @@ while True:
     if not success:
         break
 
-# send final packets before gracefully exiting
 for w in range(10):
     end_packet = packet_struct.pack(sequence_num, "", True, window_size)
     sock.sendto(end_packet, dest)
