@@ -21,7 +21,7 @@ def log_error(string):
 
 # connect to socket and setup attributes
 def setup_socket():
-    my_socket = socket(AF_INET, SOCK_DGRAM) 
+    my_socket = socket(AF_INET, SOCK_DGRAM)
     my_socket.bind(('127.0.0.1', 0))
     my_socket.settimeout(300000)
     return my_socket
@@ -36,8 +36,8 @@ packet = Struct('I 1400s ? I')
 sock = setup_socket()
 
 # Get port we bound to
-UDP_PORT = sock.getsockname()[1]
-log_error("[bound] " + str(UDP_PORT))
+udp_port = sock.getsockname()[1]
+log_error("[bound] " + str(udp_port))
 
 def unpack_data(data):
     parts = packet.unpack(data)
@@ -53,7 +53,6 @@ def send_ack(seq, data):
         log_error("send ack " + str(seq + len(data))) 
 
 def process_data(packet):
-    global RECEIEVED
     global last_ack
   
     seq, data, eof, _ = packet
