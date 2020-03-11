@@ -119,7 +119,7 @@ while True:
             (data, addr) = result
             try:
                 decoded = json.loads(data)
-                ack_return = decoded["ack_num"]
+                ack_return = decoded["ack"]
 
                 if ack_return in target_acks:
                     acks_sent.append(ack_return)
