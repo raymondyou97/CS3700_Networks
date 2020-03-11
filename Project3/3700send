@@ -6,6 +6,12 @@ from datetime import datetime
 from socket import socket, AF_INET, SOCK_DGRAM
 from struct import Struct
 
+# for logging to stdout
+def log_normal(string):
+    # redirect print output to stdout
+    # this should be sys.stdout but dunno why its not working. fk it for now
+    print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
+
 # for logging to stderr
 def log_error(string):
     # redirect print output to stderr
@@ -118,9 +124,6 @@ while True:
             try:
                 decoded = json.loads(data)
                 ack = decoded['ack']
-
-                if ack in SENT:
-                    TIMEOUT = TIMEOUT + 1
 
                 if ack in expected_acks:
                     SENT.append(ack)
