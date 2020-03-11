@@ -36,10 +36,10 @@ received_sequences = []
 last_ack = 0
 
 # Set up the socket
-sock = setup_socket()
+my_socket = setup_socket()
 
 # Get port we bound to
-udp_port = sock.getsockname()[1]
+udp_port = my_socket.getsockname()[1]
 log_normal("[bound] {}".format(str(udp_port)))
 
 # deconstruct the C struct received
@@ -57,7 +57,7 @@ def deliver_ack(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
     log_normal("[sending] {}".format(msg))
-    if sock.sendto(msg, addr) < len(msg):
+    if my_socket.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:
         log_normal("[sent] {}".format(str(sequence + len(data))))
@@ -92,7 +92,7 @@ def process_data(packet):
 
     # got data, add to mapping and update next sequence to new sequence
     if data is not None:
-        msg = "[recv data] {} ({}) {}".format(str(sequence), str(len(data), "ACCEPTED (in-order)"))
+        msg = "[recv data] {} ({}) {}".format(str(sequence), str(len(data)), "ACCEPTED (in-order)")
         log_normal(msg)
         sequence_packet_map[sequence] = packet
         current_sequence = sequence
@@ -113,7 +113,7 @@ def process_data(packet):
 
 # main loop where the 'receiving logic' happens
 while True:
-    result = sock.recvfrom(1500)
+    result = my_socket.recvfrom(1500)
     # If nothing is ready, we hit the timeout
     if result:
         (data, addr) = result
