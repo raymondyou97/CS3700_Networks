@@ -77,17 +77,19 @@ def process_data(packet):
     # add the new sequence to our list of received sequences
     received_sequences.append(sequence)
 
+    current_sequence = None
+    # got data, add to mapping and update next sequence to new sequence
     if data:
         msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
         log_normal(msg)
         sequence_packet_map[sequence] = packet 
-        next_sequence = sequence
+        current_sequence = sequence
     
-    while sequence_packet_map.get(next_sequence, None) and last_ack == next_sequence:
-        to_write = sequence_packet_map.get(next_sequence)
-        last_ack = last_ack + len(to_write[1])
-        sys.stdout.write(to_write[1])
-        next_sequence = next_sequence + len(to_write[1])
+    while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
+        packet = sequence_packet_map.get(current_sequence)[1]
+        sys.stdout.write(packet)
+        last_ack = last_ack + len(packet)
+        current_sequence = current_sequence + len(packet)
 
     send_ack_msg(sequence, data)
 
