@@ -24,7 +24,7 @@ def log_error(string):
 def setup_socket():
     my_socket = socket(AF_INET, SOCK_DGRAM)
     my_socket.bind(('127.0.0.1', 0))
-    my_socket.settimeout(300000)
+    my_socket.settimeout(20)
     return my_socket
 
 # struct of int, char[] of length 1400, boolean, int
