@@ -43,11 +43,13 @@ sock = setup_socket()
 udp_port = sock.getsockname()[1]
 log_normal("[bound] " + str(udp_port))
 
+# deconstruct the C struct received
 def unpack_data(data):
     parts = packet.unpack(data)
     data_spt = parts[1].split("\x00")[0]
     return (parts[0], data_spt, parts[2], parts[3])
 
+# send back an ack to the sender
 def send_ack_msg(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
@@ -58,37 +60,36 @@ def send_ack_msg(sequence, data):
         log_normal("[sent] " + str(sequence + len(data))) 
 
 def process_data(packet):
-    global last_ack
+    global last_ack # to allow mutation in a local context
   
     sequence, data, end_of_file_flag, _ = packet
   
+    # done if EOF found
     if end_of_file_flag:
-        log_normal("[completed, EOF reached]")
-        log_normal("[final received data] " + str(sequence_packet_map))
+        log_normal("[completed]")
         sys.exit(0)
 
+    # we have the given sequence, send back an ack
     if sequence in received_sequences:
         send_ack_msg(sequence, data)
         return
 
+    # add the new sequence to our list of received sequences
     received_sequences.append(sequence)
 
-    # If there is data and sequence = last acked, we accept it and print it out
-    # else we put it in the buffer
-
     if data:
-        log_normal("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
-        # print if the correct next order packet has arrived
+        msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
+        log_normal(msg)
         sequence_packet_map[sequence] = packet 
-        next_seq = sequence
- 
-    while sequence_packet_map.get(next_seq, None) and last_ack == next_seq:
-        to_write = sequence_packet_map.get(next_seq)
-        last_ack = last_ack + len(to_write[1])
-        sys.stdout.write(to_write[1])
-        next_seq = next_seq + len(to_write[1])
+        next_sequence = sequence
+    
+    if sequence_packet_map.get(next_sequence, None):
+        while last_ack == next_sequence:
+            to_write = sequence_packet_map.get(next_sequence)
+            last_ack = last_ack + len(to_write[1])
+            sys.stdout.write(to_write[1])
+            next_sequence = next_sequence + len(to_write[1])
 
-    # Send back an ack to the sender
     send_ack_msg(sequence, data)
 
 # main loop where the 'receiving' happens
