@@ -68,14 +68,13 @@ def termination_handler(flag):
         return
 
 def process_data(packet):
-    global received_sequences # to allow mutation in a local context
-    global last_ack # to allow mutation in a local context
-
     # deconstruct packet
     sequence, data, end_of_file_flag, _ = packet
 
     # done if EOF found
     termination_handler(end_of_file_flag)
+
+    global received_sequences # to allow mutation in a local context
 
     # we have the given sequence, send back an ack
     if sequence in received_sequences:
@@ -87,6 +86,8 @@ def process_data(packet):
 
     current_sequence = None
 
+    global last_ack # to allow mutation in a local context
+    
     # got data, add to mapping and update next sequence to new sequence
     if data:
         msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
@@ -104,7 +105,7 @@ def process_data(packet):
 
     deliver_ack(sequence, data)
 
-# main loop where the 'receiving' happens
+# main loop where the 'receiving logic' happens
 while True:
     result = sock.recvfrom(1500)
     # If nothing is ready, we hit the timeout
