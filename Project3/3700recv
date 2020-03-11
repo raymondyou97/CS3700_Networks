@@ -98,12 +98,14 @@ def process_data(packet):
         same_flag = last_ack == current_sequence
         # print out the data to STDOUT in-order
         while sequence_packet_map.get(current_sequence, None) and same_flag:
-            packet = sequence_packet_map.get(current_sequence)[1]
+            packet_tuple = sequence_packet_map.get(current_sequence)
+            packet = packet_tuple[1]
             sys.stdout.write(packet)
             last_ack += len(packet)
             current_sequence += len(packet)
     else:
         # log_error("ABORT?")
+        return
 
     deliver_ack(sequence, data)
 
