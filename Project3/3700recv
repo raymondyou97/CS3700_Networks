@@ -69,13 +69,6 @@ def termination_handler(flag):
     else:
         return
 
-def process_data_helper(data, sequence, current_sequence):
-    if data is not None:
-        msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
-        log_normal(msg)
-        sequence_packet_map[sequence] = packet
-        current_sequence = sequence
-
 def process_data(packet):
     global last_ack # to allow mutation in a local context
 
@@ -95,7 +88,11 @@ def process_data(packet):
     current_sequence = None
 
     # got data, add to mapping and update next sequence to new sequence
-    process_data_helper(data, sequence, current_sequence)
+    if data:
+        msg = "[recv data] {} ({})".format(str(sequence), str(len(data)))
+        log_normal(msg)
+        sequence_packet_map[sequence] = packet
+        current_sequence = sequence
 
     # print out the data to STDOUT in-order
     while sequence_packet_map.get(current_sequence, None) and last_ack == current_sequence:
