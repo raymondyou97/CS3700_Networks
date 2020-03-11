@@ -94,10 +94,7 @@ def resend_packet(sequence):
 def shift_window():
     # log_normal("[info] window shifted by 1")
     window_size += 1
-    # Try to send next packet; break if no more data
-    success_or_nah = send_packet()
-    if not success_or_nah:
-        break
+    return window_size
 
 # iterate through the window size to for prerequistes steps
 def iterate_window(sequence_num):
@@ -160,6 +157,11 @@ while True:
             sys.exit(-1)
 
     shift_window()
+
+    # Try to send next packet; break if no more data
+    success_or_nah = send_packet()
+    if not success_or_nah:
+        break
 
 # yolo send packets, some will make it right...?
 final_attempt()
