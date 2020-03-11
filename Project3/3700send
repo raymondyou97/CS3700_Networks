@@ -17,6 +17,12 @@ def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
+# connect to socket and setup attributes
+def setup_socket():
+    my_socket = socket(AF_INET, SOCK_DGRAM)
+    my_socket.settimeout(1.2)
+    return my_socket
+
 packet_data_length = 1500 - 100
 
 # struct of int, char[], boolean, int
@@ -31,18 +37,11 @@ window_size = 100
 packet_data = None
 # acks already sent out
 acks_sent = []
-
-# get the port the receiver opened up
+# ip/port info for geting the port the receiver opens up
 ip_port = sys.argv[1]
 udp_ip = ip_port[0:ip_port.find(":")]
 udp_port = int(ip_port[ip_port.find(":")+1:])
 dest = (udp_ip, udp_port)
-
-# connect to socket and setup attributes
-def setup_socket():
-    my_socket = socket(AF_INET, SOCK_DGRAM)
-    my_socket.settimeout(1.2)
-    return my_socket
 
 # Set up the socket
 sock = setup_socket()
@@ -51,7 +50,7 @@ sock = setup_socket()
 def read_stdin():
     final_data = ""
     while True:
-        intake = sys.stdin.read(1400)
+        intake = sys.stdin.read(packet_data_length)
         if len(intake) > 1:
             final_data += intake
         else:
@@ -60,14 +59,13 @@ def read_stdin():
 # sends the packet
 def send_packet():
     for w in range(window_size):
-        data = packet_data[:1400]
+        data = packet_data[:packet_data_length]
 
         if len(data) > 0:
             global sequence_num
             global packet_data
-            packet_data = packet_data[1400:]
+            packet_data = packet_data[packet_data_length:]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
-            assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
             sequence_num += len(data)
             if sock.sendto(packet, dest) < len(packet):
@@ -144,7 +142,7 @@ while True:
             (data, addr) = result
             try:
                 decoded = json.loads(data)
-                my_ack = decoded['ack']
+                my_ack = decoded["ack"]
                 # if ack has been received and acknowledged, we can conclude and clean this ack
                 if my_ack in target_acks:
                     target_acks.remove(my_ack)
@@ -157,6 +155,7 @@ while True:
             sys.exit(-1)
 
     shift_window()
+
     # Try to send next packet; break if no more data
     success_or_nah = send_packet()
     if not success_or_nah:
