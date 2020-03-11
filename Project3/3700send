@@ -22,7 +22,7 @@ window_size = 100
 packet_data = None
 sequence_packet_map = {}
 acks_sent = []
-packet_struct = Struct('i 1400s ? i')
+packet_struct = Struct('I 1400s ? I')
 
 ip_port = sys.argv[1]
 udp_ip = ip_port[0:ip_port.find(":")]
@@ -55,22 +55,23 @@ def send_next_packet():
     global sequence_packet_map
     global packet_struct
 
-    for i in range(window_size):
+    for x in range(window_size):
         data = packet_data[:1400]
 
         if len(data) < 1:
-            return i != 0
+            packet_data = packet_data[1400:]
+            msg = packet_struct.pack(sequence_num, data, False, window_size)
+            assert (len(msg) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
-        packet_data = packet_data[1400:]
-        packet = packet_struct.pack(sequence_num, data, False, window_size)
-        assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
-
-        sequence_num += len(data)
-        if sock.sendto(packet, dest) < len(packet):
-            log_error("[error] unable to fully send packet")
+            sequence_num += len(data)
+            if sock.sendto(msg, dest) < len(msg):
+                log_error("[error] unable to fully send packet")
+            else:
+                sequence_packet_map[sequence_num] = (msg, len(data))
+                log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
         else:
-            sequence_packet_map[sequence_num] = (packet, len(data))
-            log_normal("[send data] " + str(sequence_num) + " (" + str(len(data)) + ")")
+            flag = 0 == x
+            return not flag
     return True
 
 def resend_packet(seq):
@@ -88,8 +89,6 @@ send_next_packet()
 
 # Now read in data, send packets
 while True:
-    log_normal("ABOUT TO SLEEP")
-
     expected_acks = []
     seq = sequence_num
 
