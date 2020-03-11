@@ -97,7 +97,7 @@ while True:
             target_acks.append(sequence_temp)
         packet = sequence_packet_map.get(sequence_temp, None)
         prev_packet = sequence_packet_map.get(sequence_temp - packet[1], None)
-        if prev_packet is not None:
+        if not prev_packet:
             break
         sequence_temp = sequence_temp - packet[1]
 
