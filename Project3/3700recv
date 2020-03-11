@@ -87,23 +87,20 @@ def process_data(packet):
     # Send back an ack to the sender
     send_ack(sequence, data)
 
-def main():
-    while True:
-        result = sock.recvfrom(1500)
+while True:
+    result = sock.recvfrom(1500)
 
-        # If nothing is ready, we hit the timeout
-        if result:
-            (data, addr) = result
+    # If nothing is ready, we hit the timeout
+    if result:
+        (data, addr) = result
 
-            try:
-                data_pts = unpack_data(data)
-                process_data(data_pts)
+        try:
+            data_pts = unpack_data(data)
+            process_data(data_pts)
 
-            except (ValueError, KeyError, TypeError) as e:
-                log_error("[recv corrupt packet]")
-                raise e
-        else:
-            log_error("[error] timeout")
-            sys.exit(-1)
-
-main()
+        except (ValueError, KeyError, TypeError) as e:
+            log_error("[recv corrupt packet]")
+            raise e
+    else:
+        log_error("[error] timeout")
+        sys.exit(-1)
