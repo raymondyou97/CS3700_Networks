@@ -26,46 +26,45 @@ def setup_socket():
     my_socket.settimeout(300000)
     return my_socket
 
-# struct of int, char[] of length 1400, boolean, int
+# C struct of int, char[] of length 1400, boolean, int
 packet = Struct('I 1400s ? I')
 sequence_packet_map = {}
+# keep tracking of sequence #s
 received_sequences = []
+# keep track of last acknowledgement
 last_ack = 0
 
 # Set up the socket
 sock = setup_socket()
 
-# Get port we bound to
-udp_port = sock.getsockname()[1]
-log_error("[bound] " + str(udp_port))
-
+# unpacks the C struct into a Python tuple
 def unpack_data(data):
     parts = packet.unpack(data)
-    return (parts[0], parts[1].split("\x00")[0], parts[2], parts[3])
+    data_spt = parts[1].split("\x00")[0]
+    return (parts[0], data_spt, parts[2], parts[3])
 
-def send_ack(sequence, data):
+def send_ack_msg(sequence, data):
     my_dict = {"ack": sequence + len(data)}
     msg = json.dumps(my_dict)
-    log_error("ABOUT TO SEND " + msg)
+    log_normal("[sending] " + msg)
     if sock.sendto(msg, addr) < len(msg):
         log_error("[error] unable to fully send packet")
     else:   
-        log_error("send ack " + str(sequence + len(data))) 
+        log_normal("[success] fully send packet " + str(sequence + len(data))) 
 
 def process_data(packet):
     global last_ack
   
     sequence, data, end_of_file_flag, _ = packet
   
-    if sequence in received_sequences:
-        send_ack(sequence, data)
-        return
-  
-    # If the EOF flag is set, exit
     if end_of_file_flag:
-        log_error("[completed]")
-        log_error(str(sequence_packet_map))
+        log_normal("[completed, EOF reached]")
+        log_normal("[final received data] " + str(sequence_packet_map))
         sys.exit(0)
+
+    if sequence in received_sequences:
+        send_ack_msg(sequence, data)
+        return
 
     received_sequences.append(sequence)
 
@@ -73,7 +72,7 @@ def process_data(packet):
     # else we put it in the buffer
 
     if data:
-        log_error("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
+        log_normal("[recv data] " + str(sequence) + " (" + str(len(data)) + ")")
         # print if the correct next order packet has arrived
         sequence_packet_map[sequence] = packet 
         next_seq = sequence
@@ -85,22 +84,24 @@ def process_data(packet):
         next_seq = next_seq + len(to_write[1])
 
     # Send back an ack to the sender
-    send_ack(sequence, data)
+    send_ack_msg(sequence, data)
 
+# Get port we bound to
+udp_port = sock.getsockname()[1]
+log_normal("[bound] " + str(udp_port))
+
+# main loop where the 'receiving logic' happens
 while True:
     result = sock.recvfrom(1500)
-
     # If nothing is ready, we hit the timeout
     if result:
         (data, addr) = result
-
         try:
             data_pts = unpack_data(data)
             process_data(data_pts)
-
-        except (ValueError, KeyError, TypeError) as e:
+        except (ValueError, KeyError, TypeError) as exc:
             log_error("[recv corrupt packet]")
-            raise e
+            raise exc
     else:
         log_error("[error] timeout")
         sys.exit(-1)
