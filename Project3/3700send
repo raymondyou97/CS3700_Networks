@@ -132,16 +132,14 @@ while True:
             log_error("[error] timeout")
             sys.exit(-1)
 
-    # increase the window size
     window_size = window_size * 2
 
-    # send next packet or get out of loop if it fails
-    success = send_packet():
-    if not success:
+    # send next packet; break if no more data
+    if not send_packet():
         break
 
 for w in range(10):
-    end_packet = packet_struct.pack(sequence_num, "", True, window_size)
-    sock.sendto(end_packet, dest)
+    fin = packet_struct.pack(sequence_num, "", True, window_size)
+    sock.sendto(fin, dest)
 
 sys.exit(0)
