@@ -17,28 +17,28 @@ def log_error(string):
     # redirect print output to stderr
     print >> sys.stderr, (datetime.now().strftime("%H:%M:%S.%f") + " " + string + "\n")
 
-SEQUENCE = 0
-WINDOW = 100
-DATA = None
-PACKETS = {}
-SENT = []
-S = Struct('i 1400s ? i')
+sequence = 0
+window_size = 100
+packet_data = None
+sequence_packet_map = {}
+acks_sent = []
+packet = Struct('i 1400s ? i')
 
-IP_PORT = sys.argv[1]
-UDP_IP = IP_PORT[0:IP_PORT.find(":")]
-UDP_PORT = int(IP_PORT[IP_PORT.find(":")+1:])
-dest = (UDP_IP, UDP_PORT)
+ip_port = sys.argv[1]
+udp_ip = IP_PORT[0:IP_PORT.find(":")]
+udp_port = int(IP_PORT[IP_PORT.find(":")+1:])
+dest = (udp_ip, udp_port)
 
 # connect to socket and setup attributes
 def setup_socket():
-    sock = socket(AF_INET, SOCK_DGRAM)
-    sock.settimeout(1.2)
-    return sock
+    my_socket = socket(AF_INET, SOCK_DGRAM)
+    my_socket.settimeout(1.2)
+    return my_socket
 
 # Set up the socket
 sock = setup_socket()
 
-# Retrieve data from STDIN
+# retrieve data from STDIN
 def read_stdin():
     final_data = ""
     while True:
@@ -48,61 +48,61 @@ def read_stdin():
         else:
             return final_data
 
-DATA = read_stdin()
-
 def send_next_packet():
-    global SEQUENCE
-    global DATA
-    global WINDOW
-    global PACKETS
-    global S
+    global sequence
+    global packet_data
+    global window_size
+    global sequence_packet_map
+    global packet
 
-    for i in range(WINDOW):
-        data = DATA[:1400]
+    for i in range(window_size):
+        data = packet_data[:1400]
 
         if len(data) < 1:
             return i != 0
 
-        DATA = DATA[1400:]
-        packet = S.pack(SEQUENCE, data, False, WINDOW)
+        packet_data = packet_data[1400:]
+        packet = packet.pack(sequence, data, False, window_size)
         assert (len(packet) <= 1472), "ERROR: Datagram is longer than 1472 bytes!!!"
 
-        SEQUENCE += len(data)
+        sequence += len(data)
         if sock.sendto(packet, dest) < len(packet):
             log_error("[error] unable to fully send packet")
         else:
-            PACKETS[SEQUENCE] = (packet, len(data))
-            log_error("[send data] " + str(SEQUENCE) + " (" + str(len(data)) + ")")
+            sequence_packet_map[sequence] = (packet, len(data))
+            log_normal("[send data] " + str(sequence) + " (" + str(len(data)) + ")")
     return True
 
 def resend_packet(seq):
-    global PACKETS
-    (to_resend, size) = PACKETS[seq]
+    global sequence_packet_map
+    (to_resend, size) = sequence_packet_map[seq]
     if sock.sendto(to_resend, dest) < len(to_resend):
         log_error("[error] unable to fully send packet")
     else:
-        log_error("[send data] " + str(seq) + " (" + str(size) + ")")
+        log_normal("[send data] " + str(seq) + " (" + str(size) + ")")
+
+packet_data = read_stdin()
 
 # Send first packet
 send_next_packet()
 
 # Now read in data, send packets
 while True:
-    log_error("ABOUT TO SLEEP")
+    log_normal("ABOUT TO SLEEP")
 
     expected_acks = []
-    seq = SEQUENCE
+    seq = sequence
 
-    for i in range(WINDOW):
-        if seq not in expected_acks and seq not in SENT:
+    for i in range(window_size):
+        if seq not in expected_acks and seq not in acks_sent:
             expected_acks.append(seq)
-        packet = PACKETS.get(seq)
-        prev_packet = PACKETS.get(seq - packet[1], None)
+        packet = sequence_packet_map.get(seq)
+        prev_packet = sequence_packet_map.get(seq - packet[1], None)
         if not prev_packet:
             break
         seq = seq - packet[1]
 
-    log_error(str(expected_acks))
+    log_normal(str(expected_acks))
 
     while True:
         if len(expected_acks) == 0:
@@ -112,7 +112,7 @@ while True:
         try:
             result = sock.recvfrom(1500)
         except:
-            if len(expected_acks) > (WINDOW / 2):
+            if len(expected_acks) > (window_size / 2):
                 log_error("uhoh")
             for seq in expected_acks:
                 resend_packet(seq)
@@ -125,9 +125,9 @@ while True:
                 ack = decoded['ack']
 
                 if ack in expected_acks:
-                    SENT.append(ack)
+                    acks_sent.append(ack)
                     expected_acks.remove(ack)
-                    log_error("[recv ack] " + str(ack))
+                    log_normal("[recv ack] " + str(ack))
 
             except (ValueError, KeyError, TypeError):
                 log_error("[recv corrupt packet]")
@@ -135,13 +135,13 @@ while True:
             log_error("[error] timeout")
             sys.exit(-1)
 
-    WINDOW = WINDOW * 2
+    window_size = window_size * 2
     # Try to send next packet; break if no more data
     if (not send_next_packet()):
         break
 
 for i in range(10):
-    fin = S.pack(SEQUENCE, "", True, WINDOW)
+    fin = packet.pack(sequence, "", True, window_size)
     sock.sendto(fin, dest)
 
 sys.exit(0)
