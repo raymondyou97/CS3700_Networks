@@ -58,12 +58,12 @@ def read_stdin():
 
 # sends the packet
 def send_packet():
+    global packet_data
     for w in range(window_size):
         data = packet_data[0:packet_data_length]
 
         if len(data) > 0:
             global sequence_num
-            global packet_data
             packet_data = packet_data[packet_data_length:len(packet_data)]
             packet = packet_struct.pack(sequence_num, data, False, window_size)
 
