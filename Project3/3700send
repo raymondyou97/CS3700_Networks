@@ -102,9 +102,9 @@ def resend_packet(sequence):
 # shift our window size to the right
 def shift_window():
     global window_size # to allow mutation in a local context
-    # log_normal("[info] shifting window from {} to {}".format(window_size, window_size * 2))
-    window_size *= 2
-    # log_normal("[info] window shifted from {} to {}".format(window_size, window_size * 2))
+    # log_normal("[info] shifting window from {} to {}".format(window_size, window_size + 1))
+    window_size += 1
+    # log_normal("[info] window shifted from {} to {}".format(window_size, window_size + 1))
 
 # iterate through the window size to for prerequistes steps
 def iterate_window(sequence_num):
@@ -126,7 +126,7 @@ def iterate_window(sequence_num):
 
 # send 'last termination packets' before ending gracefully
 def final_attempt():
-    attempts = 12
+    attempts = 6
     for w in range(attempts):
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         my_socket.sendto(last_packet, dest)
