@@ -99,12 +99,12 @@ def resend_packet(sequence):
     else:
         log_normal("[send data] {} ({})".format(str(sequence), str(size)))
 
-# shift our window size by one to the right
+# shift our window size to the right
 def shift_window():
     global window_size # to allow mutation in a local context
-    # log_normal("[info] shifting window from {} to {}".format(window_size, window_size * 1.9))
-    window_size *= 1.9
-    # log_normal("[info] window shifted from {} to {}".format(window_size, window_size * 1.9))
+    # log_normal("[info] shifting window from {} to {}".format(window_size, window_size * 2))
+    window_size *= 2
+    # log_normal("[info] window shifted from {} to {}".format(window_size, window_size * 2))
 
 # iterate through the window size to for prerequistes steps
 def iterate_window(sequence_num):
