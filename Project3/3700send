@@ -117,16 +117,6 @@ def iterate_window(sequence_num):
         sequence_num = previous_sequence
     return sequence_num
 
-def read_data(target_acks):
-    try:
-        # receive data from the receiver
-        result = my_socket.recvfrom(1500)
-    except:
-        # resend packets that weren't received by the receiver
-        for sequence_temp in target_acks:
-            resend_packet(sequence_temp)
-        continue
-
 # send 'last termination packets' before ending gracefully
 def final_attempt():
     attempts = 8
@@ -148,7 +138,14 @@ while True:
         if len(target_acks) == 0:
             break
         result = None
-        read_data(target_acks)
+        try:
+            # receive data from the receiver
+            result = my_socket.recvfrom(1500)
+        except:
+            # resend packets that weren't received by the receiver
+            for sequence_temp in target_acks:
+                resend_packet(sequence_temp)
+            continue
         if result:
             (data, addr) = result
             try:
