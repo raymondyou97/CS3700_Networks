@@ -10,7 +10,7 @@ We first looked over the starter code given to get a glimpse of how the implemen
 
 ## Challenges Faced
 
-The main challenges we faced were implementing the sliding window tcp algorithm properly. Everytime we made a change on one end for example the sender, we also needed to make the correct changes on the receiver end. We often found that we would make a slight change on one side and it would break the other end. Thus, we had to work very carefully not to have any regressions everytime we made it to a milestone. Another challenge we faced was what the specific criterias were when resending a packet, considering it a dropped packet. We also had a test that kept timing out so we had to keep tweaking the variables to get optimality.
+The main challenges we faced were implementing the sliding window tcp algorithm properly. Everytime we made a change on one end for example the sender, we also needed to make the correct changes on the receiver end. We often found that we would make a slight change on one side and it would break the other end. Thus, we had to work very carefully not to have any regressions everytime we made it to a milestone. Another challenge we faced was what the specific criterias were when resending a packet, considering it a dropped packet. We also had a test that kept timing out so we had to keep tweaking the variables to get optimality. Furthermore, some tests were flakey and we just kept guess and checking by tweaking the values until it eventually seemed stable enough.
 
 ## Testing
 
