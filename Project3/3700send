@@ -22,7 +22,7 @@ def log_error(string):
 # connect to socket and setup attributes
 def setup_socket():
     my_socket = socket(AF_INET, SOCK_DGRAM)
-    my_socket.settimeout(1.2)
+    my_socket.settimeout(1.5)
     return my_socket
 
 # 1500 byte Ethernet MTU minus overhead
@@ -103,7 +103,7 @@ def resend_packet(sequence):
 def shift_window():
     global window_size # to allow mutation in a local context
     # log_normal("[info] shifting window from {} to {}".format(window_size, window_size + 1))
-    window_size += 1
+    window_size *= 2
     # log_normal("[info] window shifted from {} to {}".format(window_size, window_size + 1))
 
 # iterate through the window size to for prerequistes steps
@@ -126,7 +126,7 @@ def iterate_window(sequence_num):
 
 # send 'last termination packets' before ending gracefully
 def final_attempt():
-    attempts = 8
+    attempts = 12
     for w in range(attempts):
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         my_socket.sendto(last_packet, dest)
