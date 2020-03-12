@@ -63,8 +63,6 @@ def read_stdin():
 def send_packet():
     global packet_data # to allow mutation in a local context
     for w in range(window_size):
-        if w == 0:
-            return False
         data = packet_data[0:packet_data_length]
 
         if len(data) > 0:
@@ -80,6 +78,9 @@ def send_packet():
                 tupl = (packet, len(data))
                 sequence_packet_map[sequence_num] = tupl
                 log_normal("[send data] {} ({})".format(str(sequence_num), str(len(data))))
+        else:
+            if w == 0:
+                return False
     return True
 
 # resends the packet based on sequence num
