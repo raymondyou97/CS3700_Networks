@@ -131,6 +131,13 @@ def final_attempt():
         last_packet = packet_struct.pack(sequence_num, "", True, window_size)
         my_socket.sendto(last_packet, dest)
 
+def closing_handler():
+    # yolo send packets, some will make it right...?
+    final_attempt()
+
+    log_normal("[completed]")
+    sys.exit(0)
+
 # initialize the contiual loop that reads from STDIN
 packet_data = read_stdin()
 
@@ -177,8 +184,4 @@ while True:
         log_error("[error] packet failed to send")
         break
 
-# yolo send packets, some will make it right...?
-final_attempt()
-
-log_normal("[completed]")
-sys.exit(0)
+closing_handler()
