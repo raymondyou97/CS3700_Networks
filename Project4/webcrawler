@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+
+import argparse
+import socket
+from urllib.parse import urlparse
+
+SOCKET_TIMEOUT = 30
+LOGIN_URL = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
+
+def connect(host, port):
+    my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    my_socket.settimeout(SOCKET_TIMEOUT)
+    my_socket.connect((host, port))
+    return my_socket
+
+def receive(my_socket):
+    try:
+        chunks = []
+        while(True):
+            recv = my_socket.recv(10000)
+            chunks.append(str(recv))
+            if len(recv) == 0:
+                my_socket.close()
+                break
+        return "".join(chunks)
+    except:
+      print("Connection timed out.")
+
+def get_response_code(header):
+    if '200' in header:
+        return 200
+    elif '301' in header:
+        return 301
+    elif '302' in header:
+        return 302
+    elif '403' in header:
+        return 403
+    elif '404' in header:
+        return 404
+    elif '500' in header:
+        return 500
+    else:
+        raise Exception("Status code not supported")
+
+def login(url):
+    url_parts = urlparse(url)
+    path, netloc = url_parts.path, url_parts.netloc
+    my_socket = connect(netloc, 80)
+    request = 'GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: Close \r\n\r\n'.format(path=path, host=netloc)
+    my_socket.sendall(bytes(request, 'ascii'))
+    response_header = receive(my_socket)
+    response_code = get_response_code(response_header)
+    return (response_code, response_header)
+
+def main(username, password):
+    test = login(LOGIN_URL)
+    print(test)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='web crawler')
+    parser.add_argument('username', metavar='username', type=str, help="your username")
+    parser.add_argument('password', metavar='password', type=str, help="your password")
+    args = parser.parse_args()
+    main(args.username, args.password)
