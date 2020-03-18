@@ -2,10 +2,54 @@
 
 import argparse
 import socket
+import threading
 from urllib.parse import urlparse
+from html.parser import HTMLParser
 
 SOCKET_TIMEOUT = 30
 LOGIN_URL = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
+COOKIE = ''
+SESSION_ID = ''
+TO_VISIT = ['http://fring.ccs.neu.edu/fakebook/']
+VISITED = []
+FLAGS = []
+to_ignore = ['http://fring.ccs.neu.edu/fakebook/'
+            ,'http://fring.ccs.neu.edu/'
+            ,'http://fring.ccs.neu.edu/accounts/login/'
+            ,'http://fring.ccs.neu.edu/accounts/password/reset/'
+            ,'http://fring.ccs.neu.edu/accounts/register/' ]
+
+class MyHtmlParser(HTMLParser):
+    def init(self):
+        self.csrf_token = None
+
+    def handle_starttag(self, tag, attrs):
+        self.grab_csrf_token(tag, attrs)
+
+        if tag == 'a' and attrs[0][1][0] == '/':
+            new_link = 'http://fring.ccs.neu.edu' + attrs[0][1]
+            if new_link in TO_VISIT or new_link in VISITED or new_link in to_ignore:
+                return
+            TO_VISIT.append(new_link)
+
+    def handle_data(self, data):
+        # print(data)
+        if 'FLAG:' in data and data not in FLAGS:
+            FLAGS.append(data)
+            print(data)
+
+    def grab_csrf_token(self, html_tag, data):
+        if html_tag != 'input' or ('name', "\\'csrfmiddlewaretoken\\'") not in data:
+            return
+
+        t1, t2, t3 = data
+
+        if t1 != ('type', "\\'hidden\\'") and t2 != ('name', "\\'csrfmiddlewaretoken\\'"):
+            return
+
+        _, csrf_token = t3
+        self.csrf_token = csrf_token.replace('\\\'', '')
+
 
 def connect(host, port):
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,6 +77,8 @@ def get_response_code(header):
         return 301
     elif '302' in header:
         return 302
+    elif '400' in header:
+        return 400
     elif '403' in header:
         return 403
     elif '404' in header:
@@ -40,21 +86,104 @@ def get_response_code(header):
     elif '500' in header:
         return 500
     else:
+        print(header)
         raise Exception("Status code not supported")
 
-def login(url):
+def get_session_id(html):
+    beginning = html.find('sessionid')
+    end = html.find('; expires=')
+    session_id = html[beginning:end]
+    return session_id
+
+def login(username, password, csrf_token):
+    form_data = "username={username}&password={password}&csrfmiddlewaretoken={csrftoken}&next=%2Ffakebook%2F\n\n".format(username=username, password=password, csrftoken=csrf_token)
+    cookie = "csrftoken={token}; sessionid=cd25f5ffda1f44e2b5f1aa3ad7584dc7".format(token=csrf_token)
+    (status, response) = post_request("http://fring.ccs.neu.edu/accounts/login", "/accounts/login/", form_data, cookie)
+
+    # retries = 5
+    # while (status != 302 and retries > 0):
+    #     (status, response) = post_request("http://fring.ccs.neu.edu/accounts/login", "/accounts/login/", form_data, cookie)
+    #     retries -= 1
+
+    return response
+
+def get_request(url, cookie):
     url_parts = urlparse(url)
     path, netloc = url_parts.path, url_parts.netloc
     my_socket = connect(netloc, 80)
-    request = 'GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: Close \r\n\r\n'.format(path=path, host=netloc)
+    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nConnection: Close \r\n\r\n'.format(path, netloc, cookie)
     my_socket.sendall(bytes(request, 'ascii'))
     response_header = receive(my_socket)
     response_code = get_response_code(response_header)
     return (response_code, response_header)
 
+def post_request(uri, path, form_data, cookie):
+    host = urlparse(uri).netloc
+    sock = connect(host, 80)
+    header = """
+POST {path} HTTP/1.1
+Host: {host}
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+User-Agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Mobile Safari/537.36
+Cookie: {cookie}
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: identity
+Cache-Control: no-cache
+Origin: http://fring.ccs.neu.edu
+Pragma: no-cache
+Referer: http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/
+Upgrade-Insecure-Requests: 1
+Connection: Close
+Content-Type: application/x-www-form-urlencoded
+""".format(path=path, host=host, cookie=cookie)
+    content_length = "Content-Length: " + str(len(form_data)) + "\n\n"
+    request = header + content_length + form_data
+    sock.sendall(bytes(request, 'ascii'))
+    response = receive(sock)
+    status = get_response_code(response)
+    sock.close()
+    return (status, response)
+
+def crawl(my_parser, session_cookie):
+    global TO_VISIT
+    global VISITED
+    if len(TO_VISIT) > 0:
+        link = TO_VISIT.pop()
+        if link is None or link in VISITED or link in TO_VISIT:
+            return
+        (status, response) = get_request(link, session_cookie)
+        if status == 500:
+            TO_VISIT.append(link)
+            return
+
+        if status in [403, 404]:
+            return
+
+        try:
+            my_parser.feed(response)
+        except:
+            pass
+        if link not in VISITED:
+            VISITED.append(link)
+
 def main(username, password):
-    test = login(LOGIN_URL)
-    print(test)
+    inital_status, intial_load = get_request(LOGIN_URL, None)
+    my_parser = MyHtmlParser()
+    my_parser.feed(intial_load)
+    csrf_token = my_parser.csrf_token
+    login_reponse = login('001630415', 'EL0IS10O', csrf_token)
+    session_id = get_session_id(login_reponse)
+    session_cookie = '{};  {}'.format(csrf_token, session_id)
+    threads = []
+    while (len(FLAGS) < 5):
+        if len(TO_VISIT) == 0 or threading.active_count() > 10:
+            continue
+        try:
+            thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
+            thread.start()
+            threads.append(thread)
+        except:
+            pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='web crawler')
