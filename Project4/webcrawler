@@ -103,10 +103,11 @@ def login(username, password, csrf_token):
 def get_request(url, cookie):
     global num_connections
     num_connections += 1
+    print(num_connections)
     url_parts = urlparse(url)
     path, netloc = url_parts.path, url_parts.netloc
     my_socket = connect(netloc, 80)
-    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nKeep-Alive: timeout=10, max=10000000\r\nConnection: Keep-Alive \r\n\r\n'.format(path, netloc, cookie)
+    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nKeep-Alive: timeout=10, max=10000000\r\nConnection: Close \r\n\r\n'.format(path, netloc, cookie)
     my_socket.sendall(request.encode())
     response_header = receive(my_socket)
     response_code = get_response_code(response_header)
@@ -164,7 +165,7 @@ def crawl(my_parser, session_cookie):
 def start_crawling(my_parser, session_cookie):
     threads = []
     while (len(secret_flags) < 5):
-        if len(links_pending) == 0 or threading.active_count() > 50:
+        if len(links_pending) == 0 or threading.active_count() > 10:
             continue
         try:
             thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
