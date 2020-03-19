@@ -17,7 +17,10 @@ class MyHtmlParser(HTMLParser):
         self.csrf_token = None
 
     def handle_starttag(self, tag, attrs):
+        # grab the csrf token and save it
         self.grab_csrf_token(tag, attrs)
+        
+        # add all new links
         if tag == 'a' and attrs[0][1][0] == '/':
             new_link = 'http://fring.ccs.neu.edu' + attrs[0][1]
             if new_link in links_pending or new_link in links_completed:
@@ -25,7 +28,6 @@ class MyHtmlParser(HTMLParser):
             links_pending.append(new_link)
 
     def handle_data(self, data):
-        # print(data)
         if 'FLAG:' in data and data not in secret_flags:
             new_flag = data.split('FLAG: ')[1]
             secret_flags.append(new_flag)
@@ -63,9 +65,6 @@ def receive(my_socket):
     except:
       print("Connection timed out.")
 
-def get_response_code(header):
-    print(header[11:14])
-
 def get_session_id(html):
     beginning = html.find('sessionid') + 10
     end = html.find('; expires=')
@@ -80,13 +79,13 @@ def login(username, password, csrf_token):
 
 def get_request(url, cookie):
     url_parts = urlparse(url)
-    path, netloc = url_parts.path, url_parts.netloc
-    my_socket = connect(netloc, 80)
-    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nKeep-Alive: timeout=10, max=10000000\r\nConnection: Close \r\n\r\n'.format(path, netloc, cookie)
+    path, host = url_parts.path, url_parts.netloc
+    my_socket = connect(host, 80)
+    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nConnection: Close \r\n\r\n'.format(path, host, cookie)
     my_socket.sendall(request.encode())
-    response_header = receive(my_socket)
-    response_code = get_response_code(response_header)
-    return (response_code, response_header)
+    response = receive(my_socket)
+    response_code = response[11:14] 
+    return (response_code, response)
 
 def post_request(uri, path, form_data, cookie):
     host = urlparse(uri).netloc
@@ -111,8 +110,7 @@ Content-Type: application/x-www-form-urlencoded
     request = header + content_length + form_data
     sock.sendall(request.encode())
     response = receive(sock)
-    status = get_response_code(response)
-    sock.close()
+    status = response[11:14]
     return (status, response)
 
 def crawl(my_parser, session_cookie):
@@ -122,13 +120,13 @@ def crawl(my_parser, session_cookie):
         link = links_pending.pop()
         if link is None or link in links_completed or link in links_pending:
             return
-        (status, response) = get_request(link, session_cookie)
-        if status == 301:
+        (response_code, response) = get_request(link, session_cookie)
+        if response_code == 301:
             print(response)
-        elif status in [403, 404]:
+        elif response_code in [403, 404]:
             print('403/404')
             return
-        elif status == 500:
+        elif response_code == 500:
             print('500')
             links_pending.append(link)
             return
