@@ -8,9 +8,9 @@ from html.parser import HTMLParser
 
 socket_timeout = 30
 login_url = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
-links_pending = ['http://fring.ccs.neu.edu/fakebook/']
-links_completed = []
-secret_flags = []
+links_pending = {'http://fring.ccs.neu.edu/fakebook/'}
+links_completed = set()
+secret_flags = set()
 
 class MyHtmlParser(HTMLParser):
     def init(self):
@@ -25,13 +25,12 @@ class MyHtmlParser(HTMLParser):
             new_link = 'http://fring.ccs.neu.edu' + attrs[0][1]
             if new_link in links_pending or new_link in links_completed:
                 return
-            links_pending.append(new_link)
+            links_pending.add(new_link)
 
     def handle_data(self, data):
-        if 'FLAG:' in data and data not in secret_flags:
+        if 'FLAG:' in data:
             new_flag = data.split('FLAG: ')[1]
-            secret_flags.append(new_flag)
-            print(new_flag)
+            secret_flags.add(new_flag)
 
     def grab_csrf_token(self, html_tag, data):
         if html_tag != 'input' or ('name', "\\'csrfmiddlewaretoken\\'") not in data:
@@ -118,38 +117,43 @@ def crawl(my_parser, session_cookie):
     global links_completed
     if len(links_pending) > 0:
         link = links_pending.pop()
-        if link is None or link in links_completed or link in links_pending:
+        # skip if already done
+        if link is None or link in links_completed:
             return
         (response_code, response) = get_request(link, session_cookie)
         if response_code == 301:
             print(response)
+        # skip it
         elif response_code in [403, 404]:
-            print('403/404')
+            print(response_code)
             return
+        # add back and try again later
         elif response_code == 500:
-            print('500')
-            links_pending.append(link)
+            print(response_code)
+            links_pending.add(link)
             return
         else:
             try:
                 my_parser.feed(response)
+                links_completed.add(link)
             except:
                 pass
-            if link not in links_completed:
-                links_completed.append(link)
 
 def start_crawling(my_parser, session_cookie):
     threads = []
     while len(secret_flags) < 5:
-        if len(links_pending) == 0 or threading.active_count() > 20:
-            continue
-        try:
-            thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
-            thread.start()
-            threads.append(thread)
-        except:
-            pass
+        # not sure about # of threads, decrease if it breaks...
+        if threading.active_count() < 100:
+            try:
+                thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
+                thread.start()
+                threads.append(thread)
+            except:
+                pass
 
+def print_all_flags():
+    for flag in secret_flags:
+        print(flag)
 
 def main(username, password):
     inital_status, intial_load = get_request(login_url, None)
@@ -160,6 +164,7 @@ def main(username, password):
     session_id = get_session_id(login_reponse)
     session_cookie = 'csrftoken={};  sessionid={}'.format(csrf_token, session_id)
     start_crawling(my_parser, session_cookie)
+    print_all_flags()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='web crawler')
