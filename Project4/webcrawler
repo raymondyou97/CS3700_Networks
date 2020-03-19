@@ -6,12 +6,12 @@ import threading
 from urllib.parse import urlparse
 from html.parser import HTMLParser
 
-SOCKET_TIMEOUT = 30
-LOGIN_URL = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
-TO_VISIT = ['http://fring.ccs.neu.edu/fakebook/']
-VISITED = []
-FLAGS = []
-to_ignore = ['http://fring.ccs.neu.edu/fakebook/'
+socket_timeout = 30
+login_url = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
+links_pending = ['http://fring.ccs.neu.edu/fakebook/']
+links_completed = []
+secret_flags = []
+blacklist = ['http://fring.ccs.neu.edu/fakebook/'
             ,'http://fring.ccs.neu.edu/'
             ,'http://fring.ccs.neu.edu/accounts/login/'
             ,'http://fring.ccs.neu.edu/accounts/password/reset/'
@@ -26,14 +26,14 @@ class MyHtmlParser(HTMLParser):
 
         if tag == 'a' and attrs[0][1][0] == '/':
             new_link = 'http://fring.ccs.neu.edu' + attrs[0][1]
-            if new_link in TO_VISIT or new_link in VISITED or new_link in to_ignore:
+            if new_link in links_pending or new_link in links_completed or new_link in blacklist:
                 return
-            TO_VISIT.append(new_link)
+            links_pending.append(new_link)
 
     def handle_data(self, data):
         print(data)
-        if 'FLAG:' in data and data not in FLAGS:
-            FLAGS.append(data)
+        if 'FLAG:' in data and data not in secret_flags:
+            secret_flags.append(data)
             print(data)
 
     def grab_csrf_token(self, html_tag, data):
@@ -51,7 +51,7 @@ class MyHtmlParser(HTMLParser):
 
 def connect(host, port):
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    my_socket.settimeout(SOCKET_TIMEOUT)
+    my_socket.settimeout(socket_timeout)
     my_socket.connect((host, port))
     return my_socket
 
@@ -138,15 +138,15 @@ Content-Type: application/x-www-form-urlencoded
     return (status, response)
 
 def crawl(my_parser, session_cookie):
-    global TO_VISIT
-    global VISITED
-    if len(TO_VISIT) > 0:
-        link = TO_VISIT.pop()
-        if link is None or link in VISITED or link in TO_VISIT:
+    global links_pending
+    global links_completed
+    if len(links_pending) > 0:
+        link = links_pending.pop()
+        if link is None or link in links_completed or link in links_pending:
             return
         (status, response) = get_request(link, session_cookie)
         if status == 500:
-            TO_VISIT.append(link)
+            links_pending.append(link)
             return
 
         if status in [403, 404]:
@@ -156,13 +156,13 @@ def crawl(my_parser, session_cookie):
             my_parser.feed(response)
         except:
             pass
-        if link not in VISITED:
-            VISITED.append(link)
+        if link not in links_completed:
+            links_completed.append(link)
 
 def start_crawling(my_parser, session_cookie):
     threads = []
-    while (len(FLAGS) < 5):
-        if len(TO_VISIT) == 0 or threading.active_count() > 10:
+    while (len(secret_flags) < 5):
+        if len(links_pending) == 0 or threading.active_count() > 10:
             continue
         try:
             thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
@@ -173,7 +173,7 @@ def start_crawling(my_parser, session_cookie):
 
 
 def main(username, password):
-    inital_status, intial_load = get_request(LOGIN_URL, None)
+    inital_status, intial_load = get_request(login_url, None)
     my_parser = MyHtmlParser()
     my_parser.feed(intial_load)
     csrf_token = my_parser.csrf_token
