@@ -11,12 +11,6 @@ login_url = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
 links_pending = ['http://fring.ccs.neu.edu/fakebook/']
 links_completed = []
 secret_flags = []
-blacklist = ['http://fring.ccs.neu.edu/fakebook/'
-            ,'http://fring.ccs.neu.edu/'
-            ,'http://fring.ccs.neu.edu/accounts/login/'
-            ,'http://fring.ccs.neu.edu/accounts/password/reset/'
-            ,'http://fring.ccs.neu.edu/accounts/register/' ]
-num_connections = 0
 
 class MyHtmlParser(HTMLParser):
     def init(self):
@@ -24,18 +18,18 @@ class MyHtmlParser(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         self.grab_csrf_token(tag, attrs)
-
         if tag == 'a' and attrs[0][1][0] == '/':
             new_link = 'http://fring.ccs.neu.edu' + attrs[0][1]
-            if new_link in links_pending or new_link in links_completed or new_link in blacklist:
+            if new_link in links_pending or new_link in links_completed:
                 return
             links_pending.append(new_link)
 
     def handle_data(self, data):
         # print(data)
         if 'FLAG:' in data and data not in secret_flags:
-            secret_flags.append(data)
-            print(data)
+            new_flag = data.split('FLAG: ')[1]
+            secret_flags.append(new_flag)
+            print(new_flag)
 
     def grab_csrf_token(self, html_tag, data):
         if html_tag != 'input' or ('name', "\\'csrfmiddlewaretoken\\'") not in data:
@@ -70,23 +64,7 @@ def receive(my_socket):
       print("Connection timed out.")
 
 def get_response_code(header):
-    if '200' in header:
-        return 200
-    elif '301' in header:
-        return 301
-    elif '302' in header:
-        return 302
-    elif '400' in header:
-        return 400
-    elif '403' in header:
-        return 403
-    elif '404' in header:
-        return 404
-    elif '500' in header:
-        return 500
-    else:
-        print(header)
-        raise Exception("Status code not supported")
+    print(header[11:14])
 
 def get_session_id(html):
     beginning = html.find('sessionid') + 10
@@ -101,9 +79,6 @@ def login(username, password, csrf_token):
     return response
 
 def get_request(url, cookie):
-    global num_connections
-    num_connections += 1
-    print(num_connections)
     url_parts = urlparse(url)
     path, netloc = url_parts.path, url_parts.netloc
     my_socket = connect(netloc, 80)
@@ -148,24 +123,27 @@ def crawl(my_parser, session_cookie):
         if link is None or link in links_completed or link in links_pending:
             return
         (status, response) = get_request(link, session_cookie)
-        if status == 500:
+        if status == 301:
+            print(response)
+        elif status in [403, 404]:
+            print('403/404')
+            return
+        elif status == 500:
+            print('500')
             links_pending.append(link)
             return
-
-        if status in [403, 404]:
-            return
-
-        try:
-            my_parser.feed(response)
-        except:
-            pass
-        if link not in links_completed:
-            links_completed.append(link)
+        else:
+            try:
+                my_parser.feed(response)
+            except:
+                pass
+            if link not in links_completed:
+                links_completed.append(link)
 
 def start_crawling(my_parser, session_cookie):
     threads = []
-    while (len(secret_flags) < 5):
-        if len(links_pending) == 0 or threading.active_count() > 10:
+    while len(secret_flags) < 5:
+        if len(links_pending) == 0 or threading.active_count() > 20:
             continue
         try:
             thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
