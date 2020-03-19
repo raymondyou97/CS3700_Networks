@@ -16,6 +16,7 @@ blacklist = ['http://fring.ccs.neu.edu/fakebook/'
             ,'http://fring.ccs.neu.edu/accounts/login/'
             ,'http://fring.ccs.neu.edu/accounts/password/reset/'
             ,'http://fring.ccs.neu.edu/accounts/register/' ]
+num_connections = 0
 
 class MyHtmlParser(HTMLParser):
     def init(self):
@@ -31,7 +32,7 @@ class MyHtmlParser(HTMLParser):
             links_pending.append(new_link)
 
     def handle_data(self, data):
-        print(data)
+        # print(data)
         if 'FLAG:' in data and data not in secret_flags:
             secret_flags.append(data)
             print(data)
@@ -95,17 +96,18 @@ def get_session_id(html):
 
 def login(username, password, csrf_token):
     form_data = "username={username}&password={password}&csrfmiddlewaretoken={csrftoken}&next=%2Ffakebook%2F\n\n".format(username=username, password=password, csrftoken=csrf_token)
-    cookie = "csrftoken={token}; sessionid=cd25f5ffda1f44e2b5f1aa3ad7584dc7".format(token=csrf_token)
+    cookie = "csrftoken={token};".format(token=csrf_token)
     (status, response) = post_request("http://fring.ccs.neu.edu/accounts/login", "/accounts/login/", form_data, cookie)
-
     return response
 
 def get_request(url, cookie):
+    global num_connections
+    num_connections += 1
     url_parts = urlparse(url)
     path, netloc = url_parts.path, url_parts.netloc
     my_socket = connect(netloc, 80)
-    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nConnection: Close \r\n\r\n'.format(path, netloc, cookie)
-    my_socket.sendall(bytes(request, 'ascii'))
+    request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nKeep-Alive: timeout=10, max=10000000\r\nConnection: Keep-Alive \r\n\r\n'.format(path, netloc, cookie)
+    my_socket.sendall(request.encode())
     response_header = receive(my_socket)
     response_code = get_response_code(response_header)
     return (response_code, response_header)
@@ -131,7 +133,7 @@ Content-Type: application/x-www-form-urlencoded
 """.format(path=path, host=host, cookie=cookie)
     content_length = "Content-Length: " + str(len(form_data)) + "\n\n"
     request = header + content_length + form_data
-    sock.sendall(bytes(request, 'ascii'))
+    sock.sendall(request.encode())
     response = receive(sock)
     status = get_response_code(response)
     sock.close()
@@ -162,7 +164,7 @@ def crawl(my_parser, session_cookie):
 def start_crawling(my_parser, session_cookie):
     threads = []
     while (len(secret_flags) < 5):
-        if len(links_pending) == 0 or threading.active_count() > 10:
+        if len(links_pending) == 0 or threading.active_count() > 50:
             continue
         try:
             thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
