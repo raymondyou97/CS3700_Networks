@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 
 socket_timeout = 30
 login_url = 'http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/'
+# these 3 should be sets, so we don't have to check for duplicates
 links_pending = {'http://fring.ccs.neu.edu/fakebook/'}
 links_completed = set()
 secret_flags = set()
@@ -83,53 +84,52 @@ def get_request(url, cookie):
     request = 'GET {} HTTP/1.1\r\nHost: {}\r\nCookie: {}\r\nConnection: Close \r\n\r\n'.format(path, host, cookie)
     my_socket.sendall(request.encode())
     response = receive(my_socket)
-    response_code = response[11:14] 
-    return (response_code, response)
+    status_code = response[11:14] 
+    return (status_code, response)
 
-def post_request(uri, path, form_data, cookie):
-    host = urlparse(uri).netloc
+def post_request(url, path, form_data, cookie):
+    host = urlparse(url).netloc
     sock = connect(host, 80)
-    header = """
-POST {path} HTTP/1.1
-Host: {host}
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
-User-Agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Mobile Safari/537.36
-Cookie: {cookie}
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: identity
+    request = """
+POST {} HTTP/1.1
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9,ru;q=0.8
 Cache-Control: no-cache
-Origin: http://fring.ccs.neu.edu
-Pragma: no-cache
-Referer: http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/
-Upgrade-Insecure-Requests: 1
 Connection: Close
 Content-Type: application/x-www-form-urlencoded
-""".format(path=path, host=host, cookie=cookie)
-    content_length = "Content-Length: " + str(len(form_data)) + "\n\n"
-    request = header + content_length + form_data
+Cookie: {}
+Host: {}
+Origin: http://fring.ccs.neu.edu
+Referer: {} 
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Mobile Safari/537.36
+""".format(path, cookie, host, login_url)
+    request += "Content-Length: " + str(len(form_data)) + "\n\n"
+    request += form_data
     sock.sendall(request.encode())
     response = receive(sock)
-    status = response[11:14]
-    return (status, response)
+    status_code = response[11:14]
+    return (status_code, response)
 
 def crawl(my_parser, session_cookie):
-    global links_pending
-    global links_completed
+    global links_pending, links_completed
     if len(links_pending) > 0:
         link = links_pending.pop()
         # skip if already done
         if link is None or link in links_completed:
             return
-        (response_code, response) = get_request(link, session_cookie)
-        if response_code == 301:
+        (status_code, response) = get_request(link, session_cookie)
+        # grab new URL in the Location header
+        if status_code == 301:
             print(response)
         # skip it
-        elif response_code in [403, 404]:
-            print(response_code)
+        elif status_code in [403, 404]:
+            print(status_code)
             return
-        # add back and try again later
-        elif response_code == 500:
-            print(response_code)
+        # add back to set and try again
+        elif status_code == 500:
+            print(status_code)
             links_pending.add(link)
             return
         else:
@@ -140,35 +140,38 @@ def crawl(my_parser, session_cookie):
                 pass
 
 def start_crawling(my_parser, session_cookie):
-    threads = []
     while len(secret_flags) < 5:
         # not sure about # of threads, decrease if it breaks...
-        if threading.active_count() < 100:
+        if threading.active_count() < 20:
             try:
                 thread = threading.Thread(target=crawl, args=(my_parser, session_cookie))
                 thread.start()
-                threads.append(thread)
             except:
                 pass
 
 def print_all_flags():
+    assert(len(secret_flags) == 5)
     for flag in secret_flags:
         print(flag)
 
 def main(username, password):
+    # 1: get csrf token
     inital_status, intial_load = get_request(login_url, None)
     my_parser = MyHtmlParser()
     my_parser.feed(intial_load)
     csrf_token = my_parser.csrf_token
+    # 2: login and get session id
     login_reponse = login(username, password, csrf_token)
     session_id = get_session_id(login_reponse)
     session_cookie = 'csrftoken={};  sessionid={}'.format(csrf_token, session_id)
+    # 3: start crawling
     start_crawling(my_parser, session_cookie)
+    # 4: print the 5 flags
     print_all_flags()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='web crawler')
-    parser.add_argument('username', metavar='username', type=str, help="your username")
-    parser.add_argument('password', metavar='password', type=str, help="your password")
+    parser.add_argument('username', metavar='username', type=str, help='your username')
+    parser.add_argument('password', metavar='password', type=str, help='your password')
     args = parser.parse_args()
     main(args.username, args.password)
